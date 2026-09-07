@@ -1,0 +1,10 @@
+{
+  "name": "Forrajería",
+  "short_name": "Forrajería",
+  "description": "Gestión de stock, fraccionamiento y ventas para forrajerías",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#166534",
+  "icons": []
+}
