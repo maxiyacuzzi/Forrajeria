@@ -36,6 +36,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "cypress": "^15.21.1",
+    "cypress-mochawesome-reporter": "^3.8.4",
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
     "start-server-and-test": "^2.1.5",
