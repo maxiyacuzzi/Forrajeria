@@ -1,0 +1,50 @@
+name: Cypress E2E Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  cypress-run:
+    runs-on: ubuntu-latest
+    env:
+      # Supabase's publishable anon key for Stage — safe to keep here, same
+      # as it's safe embedded in client JS.
+      NEXT_PUBLIC_SUPABASE_URL: https://aavcpxcswvlkoqpqgmxg.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_P836ht1I5LVNYvMm2IrLfA_6DI5mvdE
+      # Real account login — must be repo secrets, never hardcoded here.
+      # Settings > Secrets and variables > Actions > New repository secret.
+      CYPRESS_TEST_EMAIL: ${{ secrets.CYPRESS_TEST_EMAIL }}
+      CYPRESS_TEST_PASSWORD: ${{ secrets.CYPRESS_TEST_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Cypress run
+        uses: cypress-io/github-action@v6
+        with:
+          build: npm run build
+          start: npm run start
+          wait-on: "http://localhost:3000"
+          wait-on-timeout: 60
+
+      - name: Upload screenshots (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-screenshots
+          path: cypress/screenshots
+          if-no-files-found: ignore
+
+      - name: Upload videos
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-videos
+          path: cypress/videos
+          if-no-files-found: ignore
