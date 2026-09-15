@@ -23,13 +23,20 @@ export default async function StockPage() {
             Stock actual por producto, en sus unidades de compra y venta.
           </p>
         </div>
-        <Button
-          variant="outline"
-          nativeButton={false}
-          render={<Link href="/stock/movimientos" />}
-        >
-          Ver movimientos
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            nativeButton={false}
+            render={<Link href="/stock/movimientos" />}
+          >
+            Ver movimientos
+          </Button>
+          {canManage && (
+            <Button nativeButton={false} render={<Link href="/stock/ingreso" />}>
+              Registrar ingreso
+            </Button>
+          )}
+        </div>
       </div>
 
       <StockTable products={products ?? []} canManage={canManage} />

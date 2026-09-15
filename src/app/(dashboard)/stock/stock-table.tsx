@@ -1,6 +1,7 @@
 "use client"
 
 import { Badge } from "@/components/ui/badge"
+import { ClickableTableRow } from "@/components/ui/clickable-table-row"
 import {
   Table,
   TableBody,
@@ -48,7 +49,7 @@ export function StockTable({
         </TableHeader>
         <TableBody>
           {products.map((product) => (
-            <TableRow key={product.id}>
+            <ClickableTableRow key={product.id} href={`/productos/${product.id}`}>
               <TableCell className="font-medium">{product.name}</TableCell>
               <TableCell>
                 <Badge variant="secondary">
@@ -79,7 +80,7 @@ export function StockTable({
                   <AdjustStockDialog product={product} />
                 </TableCell>
               )}
-            </TableRow>
+            </ClickableTableRow>
           ))}
         </TableBody>
       </Table>

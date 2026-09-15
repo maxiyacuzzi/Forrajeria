@@ -34,76 +34,298 @@ export type Database = {
   }
   public: {
     Tables: {
-      fractionings: {
+      cash_registers: {
         Row: {
-          actual_qty: number | null
-          bags_opened: number
           closed_at: string | null
           closed_by: string | null
-          expected_qty: number
+          counted_amount: number | null
+          difference: number | null
+          expected_amount: number | null
           id: string
+          note: string | null
           opened_at: string
           opened_by: string | null
+          opening_amount: number
           org_id: string
-          product_id: string
-          shrinkage_qty: number | null
           status: string
         }
         Insert: {
-          actual_qty?: number | null
-          bags_opened: number
           closed_at?: string | null
           closed_by?: string | null
-          expected_qty: number
+          counted_amount?: number | null
+          difference?: number | null
+          expected_amount?: number | null
           id?: string
+          note?: string | null
           opened_at?: string
           opened_by?: string | null
+          opening_amount?: number
           org_id: string
-          product_id: string
-          shrinkage_qty?: number | null
           status?: string
         }
         Update: {
-          actual_qty?: number | null
-          bags_opened?: number
           closed_at?: string | null
           closed_by?: string | null
-          expected_qty?: number
+          counted_amount?: number | null
+          difference?: number | null
+          expected_amount?: number | null
           id?: string
+          note?: string | null
           opened_at?: string
           opened_by?: string | null
+          opening_amount?: number
           org_id?: string
-          product_id?: string
-          shrinkage_qty?: number | null
           status?: string
         }
         Relationships: [
           {
-            foreignKeyName: "fractionings_closed_by_fkey"
+            foreignKeyName: "cash_registers_closed_by_fkey"
             columns: ["closed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fractionings_opened_by_fkey"
+            foreignKeyName: "cash_registers_opened_by_fkey"
             columns: ["opened_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fractionings_org_id_fkey"
+            foreignKeyName: "cash_registers_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_product_loyalty: {
+        Row: {
+          customer_id: string
+          id: string
+          last_purchase_at: string | null
+          last_purchase_unit: string | null
+          org_id: string
+          product_id: string
+          progress_qty: number
+          updated_at: string
+        }
+        Insert: {
+          customer_id: string
+          id?: string
+          last_purchase_at?: string | null
+          last_purchase_unit?: string | null
+          org_id: string
+          product_id: string
+          progress_qty?: number
+          updated_at?: string
+        }
+        Update: {
+          customer_id?: string
+          id?: string
+          last_purchase_at?: string | null
+          last_purchase_unit?: string | null
+          org_id?: string
+          product_id?: string
+          progress_qty?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_product_loyalty_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_product_loyalty_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fractionings_product_id_fkey"
+            foreignKeyName: "customer_product_loyalty_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customers: {
+        Row: {
+          address: string | null
+          created_at: string
+          dni: string | null
+          id: string
+          name: string
+          org_id: string
+          updated_at: string
+          whatsapp: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          dni?: string | null
+          id?: string
+          name: string
+          org_id: string
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          dni?: string | null
+          id?: string
+          name?: string
+          org_id?: string
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customers_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expense_payments: {
+        Row: {
+          amount: number
+          cash_register_id: string | null
+          created_at: string
+          created_by: string | null
+          expense_id: string
+          id: string
+          note: string | null
+          org_id: string
+          payment_method: Database["public"]["Enums"]["payment_method"]
+        }
+        Insert: {
+          amount: number
+          cash_register_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          expense_id: string
+          id?: string
+          note?: string | null
+          org_id: string
+          payment_method?: Database["public"]["Enums"]["payment_method"]
+        }
+        Update: {
+          amount?: number
+          cash_register_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          expense_id?: string
+          id?: string
+          note?: string | null
+          org_id?: string
+          payment_method?: Database["public"]["Enums"]["payment_method"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_payments_cash_register_id_fkey"
+            columns: ["cash_register_id"]
+            isOneToOne: false
+            referencedRelation: "cash_registers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_payments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_payments_expense_id_fkey"
+            columns: ["expense_id"]
+            isOneToOne: false
+            referencedRelation: "expenses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_payments_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expenses: {
+        Row: {
+          amount: number
+          cash_register_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          org_id: string
+          paid_amount: number
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          supplier_id: string | null
+        }
+        Insert: {
+          amount: number
+          cash_register_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description: string
+          id?: string
+          org_id: string
+          paid_amount?: number
+          payment_method?: Database["public"]["Enums"]["payment_method"]
+          supplier_id?: string | null
+        }
+        Update: {
+          amount?: number
+          cash_register_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          org_id?: string
+          paid_amount?: number
+          payment_method?: Database["public"]["Enums"]["payment_method"]
+          supplier_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expenses_cash_register_id_fkey"
+            columns: ["cash_register_id"]
+            isOneToOne: false
+            referencedRelation: "cash_registers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
@@ -132,18 +354,21 @@ export type Database = {
           id: string
           name: string
           org_id: string
+          parent_id: string | null
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
           org_id: string
+          parent_id?: string | null
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
           org_id?: string
+          parent_id?: string | null
         }
         Relationships: [
           {
@@ -153,23 +378,81 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "product_categories_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_suppliers: {
+        Row: {
+          created_at: string
+          id: string
+          org_id: string
+          product_id: string
+          supplier_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          org_id: string
+          product_id: string
+          supplier_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          org_id?: string
+          product_id?: string
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_suppliers_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_suppliers_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_suppliers_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
         ]
       }
       products: {
         Row: {
+          bag_price: number | null
           brand: string | null
           category_id: string | null
           controls_expiration: boolean
           conversion_factor: number | null
           cost_price: number
           created_at: string
+          earns_loyalty: boolean
           id: string
+          image_url: string | null
           is_active: boolean
+          margin_bolsa_pct: number
+          margin_suelto_pct: number
           min_stock_alert: number | null
           name: string
           org_id: string
           purchase_unit_label: string
-          reference_weight: number | null
+          sale_price: number
           sale_unit_label: string
           stock_open_qty: number
           stock_qty: number
@@ -177,19 +460,24 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          bag_price?: number | null
           brand?: string | null
           category_id?: string | null
           controls_expiration?: boolean
           conversion_factor?: number | null
           cost_price?: number
           created_at?: string
+          earns_loyalty?: boolean
           id?: string
+          image_url?: string | null
           is_active?: boolean
+          margin_bolsa_pct?: number
+          margin_suelto_pct?: number
           min_stock_alert?: number | null
           name: string
           org_id: string
           purchase_unit_label?: string
-          reference_weight?: number | null
+          sale_price?: number
           sale_unit_label?: string
           stock_open_qty?: number
           stock_qty?: number
@@ -197,19 +485,24 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          bag_price?: number | null
           brand?: string | null
           category_id?: string | null
           controls_expiration?: boolean
           conversion_factor?: number | null
           cost_price?: number
           created_at?: string
+          earns_loyalty?: boolean
           id?: string
+          image_url?: string | null
           is_active?: boolean
+          margin_bolsa_pct?: number
+          margin_suelto_pct?: number
           min_stock_alert?: number | null
           name?: string
           org_id?: string
           purchase_unit_label?: string
-          reference_weight?: number | null
+          sale_price?: number
           sale_unit_label?: string
           stock_open_qty?: number
           stock_qty?: number
@@ -265,6 +558,131 @@ export type Database = {
           },
         ]
       }
+      sale_items: {
+        Row: {
+          id: string
+          loyalty_discount: number
+          product_id: string
+          quantity: number
+          sale_id: string
+          subtotal: number | null
+          unit: string
+          unit_price: number
+        }
+        Insert: {
+          id?: string
+          loyalty_discount?: number
+          product_id: string
+          quantity: number
+          sale_id: string
+          subtotal?: number | null
+          unit: string
+          unit_price?: number
+        }
+        Update: {
+          id?: string
+          loyalty_discount?: number
+          product_id?: string
+          quantity?: number
+          sale_id?: string
+          subtotal?: number | null
+          unit?: string
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_items_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales: {
+        Row: {
+          cash_register_id: string | null
+          created_at: string
+          created_by: string | null
+          customer_id: string
+          discount_amount: number
+          id: string
+          is_loyalty_reward: boolean
+          note: string | null
+          org_id: string
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          subtotal_amount: number
+          surcharge_amount: number
+          total_amount: number
+        }
+        Insert: {
+          cash_register_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id: string
+          discount_amount?: number
+          id?: string
+          is_loyalty_reward?: boolean
+          note?: string | null
+          org_id: string
+          payment_method?: Database["public"]["Enums"]["payment_method"]
+          subtotal_amount?: number
+          surcharge_amount?: number
+          total_amount?: number
+        }
+        Update: {
+          cash_register_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string
+          discount_amount?: number
+          id?: string
+          is_loyalty_reward?: boolean
+          note?: string | null
+          org_id?: string
+          payment_method?: Database["public"]["Enums"]["payment_method"]
+          subtotal_amount?: number
+          surcharge_amount?: number
+          total_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_cash_register_id_fkey"
+            columns: ["cash_register_id"]
+            isOneToOne: false
+            referencedRelation: "cash_registers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_movements: {
         Row: {
           created_at: string
@@ -275,8 +693,10 @@ export type Database = {
           product_id: string
           quantity: number
           reference_id: string | null
+          supplier_id: string | null
           type: Database["public"]["Enums"]["stock_movement_type"]
           unit: string
+          unit_cost: number | null
         }
         Insert: {
           created_at?: string
@@ -287,8 +707,10 @@ export type Database = {
           product_id: string
           quantity: number
           reference_id?: string | null
+          supplier_id?: string | null
           type: Database["public"]["Enums"]["stock_movement_type"]
           unit: string
+          unit_cost?: number | null
         }
         Update: {
           created_at?: string
@@ -299,8 +721,10 @@ export type Database = {
           product_id?: string
           quantity?: number
           reference_id?: string | null
+          supplier_id?: string | null
           type?: Database["public"]["Enums"]["stock_movement_type"]
           unit?: string
+          unit_cost?: number | null
         }
         Relationships: [
           {
@@ -324,6 +748,57 @@ export type Database = {
             referencedRelation: "products"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "stock_movements_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suppliers: {
+        Row: {
+          address: string | null
+          contact_name: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          org_id: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          contact_name?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          org_id: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          contact_name?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          org_id?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suppliers_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
@@ -336,25 +811,29 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["user_role"]
       }
-      close_fractioning: {
-        Args: { p_actual_qty: number; p_fractioning_id: string }
+      close_cash_register: {
+        Args: {
+          p_cash_register_id: string
+          p_counted_amount: number
+          p_note?: string
+        }
         Returns: {
-          actual_qty: number | null
-          bags_opened: number
           closed_at: string | null
           closed_by: string | null
-          expected_qty: number
+          counted_amount: number | null
+          difference: number | null
+          expected_amount: number | null
           id: string
+          note: string | null
           opened_at: string
           opened_by: string | null
+          opening_amount: number
           org_id: string
-          product_id: string
-          shrinkage_qty: number | null
           status: string
         }
         SetofOptions: {
           from: "*"
-          to: "fractionings"
+          to: "cash_registers"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -373,32 +852,112 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      open_fractioning: {
-        Args: { p_bags_opened: number; p_product_id: string }
+      create_sale:
+        | {
+            Args: { p_customer_id: string; p_items: Json; p_note?: string }
+            Returns: {
+              cash_register_id: string | null
+              created_at: string
+              created_by: string | null
+              customer_id: string
+              discount_amount: number
+              id: string
+              is_loyalty_reward: boolean
+              note: string | null
+              org_id: string
+              payment_method: Database["public"]["Enums"]["payment_method"]
+              subtotal_amount: number
+              surcharge_amount: number
+              total_amount: number
+            }
+            SetofOptions: {
+              from: "*"
+              to: "sales"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: {
+              p_customer_id: string
+              p_items: Json
+              p_note?: string
+              p_payment_method?: Database["public"]["Enums"]["payment_method"]
+            }
+            Returns: {
+              cash_register_id: string | null
+              created_at: string
+              created_by: string | null
+              customer_id: string
+              discount_amount: number
+              id: string
+              is_loyalty_reward: boolean
+              note: string | null
+              org_id: string
+              payment_method: Database["public"]["Enums"]["payment_method"]
+              subtotal_amount: number
+              surcharge_amount: number
+              total_amount: number
+            }
+            SetofOptions: {
+              from: "*"
+              to: "sales"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+      open_cash_register: {
+        Args: { p_note?: string; p_opening_amount: number }
         Returns: {
-          actual_qty: number | null
-          bags_opened: number
           closed_at: string | null
           closed_by: string | null
-          expected_qty: number
+          counted_amount: number | null
+          difference: number | null
+          expected_amount: number | null
           id: string
+          note: string | null
           opened_at: string
           opened_by: string | null
+          opening_amount: number
           org_id: string
-          product_id: string
-          shrinkage_qty: number | null
           status: string
         }
         SetofOptions: {
           from: "*"
-          to: "fractionings"
+          to: "cash_registers"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      register_expense_payment: {
+        Args: {
+          p_amount: number
+          p_expense_id: string
+          p_note?: string
+          p_payment_method?: Database["public"]["Enums"]["payment_method"]
+        }
+        Returns: {
+          amount: number
+          cash_register_id: string | null
+          created_at: string
+          created_by: string | null
+          expense_id: string
+          id: string
+          note: string | null
+          org_id: string
+          payment_method: Database["public"]["Enums"]["payment_method"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "expense_payments"
           isOneToOne: true
           isSetofReturn: false
         }
       }
     }
     Enums: {
-      product_unit_type: "simple" | "fraccionable" | "peso_variable"
+      payment_method: "efectivo" | "transferencia" | "tarjeta" | "posnet_mp"
+      product_unit_type: "simple" | "fraccionable" | "no_fraccionable"
       stock_movement_type:
         | "ingreso_compra"
         | "egreso_venta"
@@ -539,7 +1098,8 @@ export const Constants = {
   },
   public: {
     Enums: {
-      product_unit_type: ["simple", "fraccionable", "peso_variable"],
+      payment_method: ["efectivo", "transferencia", "tarjeta", "posnet_mp"],
+      product_unit_type: ["simple", "fraccionable", "no_fraccionable"],
       stock_movement_type: [
         "ingreso_compra",
         "egreso_venta",

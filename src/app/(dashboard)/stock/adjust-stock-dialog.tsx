@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
 
 import { adjustStock } from "./actions"
-import { stockAdjustmentSchema, type StockAdjustmentValues } from "@/lib/validations/fractioning"
+import { stockAdjustmentSchema, type StockAdjustmentValues } from "@/lib/validations/stock"
 import type { Database } from "@/lib/types/database.types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -82,7 +82,20 @@ export function AdjustStockDialog({ product }: { product: Product }) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Pool de stock</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      items={[
+                        {
+                          value: "purchase",
+                          label: `${product.purchase_unit_label} (cerradas)`,
+                        },
+                        {
+                          value: "sale",
+                          label: `${product.sale_unit_label} (sueltos)`,
+                        },
+                      ]}
+                    >
                       <FormControl>
                         <SelectTrigger className="w-full">
                           <SelectValue />
@@ -109,7 +122,14 @@ export function AdjustStockDialog({ product }: { product: Product }) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Motivo</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    items={[
+                      { value: "ajuste_manual", label: "Ajuste manual (conteo físico)" },
+                      { value: "rotura_humedad", label: "Rotura / humedad" },
+                    ]}
+                  >
                     <FormControl>
                       <SelectTrigger className="w-full">
                         <SelectValue />

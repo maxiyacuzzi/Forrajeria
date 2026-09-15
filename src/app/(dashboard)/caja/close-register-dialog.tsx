@@ -5,11 +5,13 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
 
-import { closeFractioning } from "./actions"
+import { closeCashRegister } from "./actions"
 import {
-  closeFractioningSchema,
-  type CloseFractioningValues,
-} from "@/lib/validations/fractioning"
+  closeCashRegisterSchema,
+  type CloseCashRegisterValues,
+} from "@/lib/validations/cash-register"
+import { requiredNumber } from "@/lib/number-input"
+import { formatMoney } from "@/lib/pricing"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -27,67 +29,58 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
-import { requiredNumber } from "@/lib/number-input"
 
-export function CloseFractioningDialog({
-  fractioningId,
-  productName,
-  saleUnitLabel,
-  expectedQty,
+export function CloseRegisterDialog({
+  cashRegisterId,
+  expectedSoFar,
 }: {
-  fractioningId: string
-  productName: string
-  saleUnitLabel: string
-  expectedQty: number
+  cashRegisterId: string
+  expectedSoFar: number
 }) {
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
 
-  const form = useForm<CloseFractioningValues>({
-    resolver: zodResolver(closeFractioningSchema),
-    defaultValues: { actual_qty: expectedQty },
+  const form = useForm<CloseCashRegisterValues>({
+    resolver: zodResolver(closeCashRegisterSchema),
+    defaultValues: { counted_amount: 0, note: "" },
   })
 
-  const actualQty = form.watch("actual_qty")
-  const shrinkage = expectedQty - Number(actualQty || 0)
-
-  function onSubmit(values: CloseFractioningValues) {
+  function onSubmit(values: CloseCashRegisterValues) {
     startTransition(async () => {
-      const result = await closeFractioning(fractioningId, values)
+      const result = await closeCashRegister(cashRegisterId, values)
       if (result.error) {
         toast.error(result.error)
       } else {
-        toast.success("Fraccionamiento cerrado")
+        toast.success("Caja cerrada")
         setOpen(false)
+        form.reset()
       }
     })
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button size="sm" />}>Cerrar</DialogTrigger>
+      <DialogTrigger render={<Button variant="outline" />}>Cerrar caja</DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Cerrar fraccionamiento — {productName}</DialogTitle>
+          <DialogTitle>Cerrar caja</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
             <p className="text-sm text-muted-foreground">
-              Cantidad teórica: {expectedQty} {saleUnitLabel}
+              Efectivo esperado ahora mismo: ${formatMoney(expectedSoFar)}
             </p>
 
             <FormField
               control={form.control}
-              name="actual_qty"
+              name="counted_amount"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>
-                    Cantidad realmente obtenida ({saleUnitLabel})
-                  </FormLabel>
+                  <FormLabel>Efectivo contado</FormLabel>
                   <FormControl>
                     <Input
                       type="number"
-                      step="0.01"
+                      step="1"
                       name={field.name}
                       onBlur={field.onBlur}
                       ref={field.ref}
@@ -100,19 +93,22 @@ export function CloseFractioningDialog({
               )}
             />
 
-            <p
-              className={
-                shrinkage > 0
-                  ? "text-sm font-medium text-destructive"
-                  : "text-sm font-medium text-emerald-600"
-              }
-            >
-              Merma: {shrinkage.toFixed(2)} {saleUnitLabel}
-              {shrinkage < 0 && " (se obtuvo más de lo esperado)"}
-            </p>
+            <FormField
+              control={form.control}
+              name="note"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nota</FormLabel>
+                  <FormControl>
+                    <Input {...field} value={field.value ?? ""} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <Button type="submit" disabled={pending} className="w-fit">
-              {pending ? "Cerrando..." : "Confirmar cierre"}
+              {pending ? "Cerrando..." : "Cerrar caja"}
             </Button>
           </form>
         </Form>

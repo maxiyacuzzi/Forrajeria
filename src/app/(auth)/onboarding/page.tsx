@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 
 import { createClient } from "@/lib/supabase/server"
 import { OnboardingForm } from "./onboarding-form"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 export default async function OnboardingPage() {
   const supabase = await createClient()
@@ -24,7 +25,10 @@ export default async function OnboardingPage() {
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-muted/40 p-4">
+    <div className="relative flex min-h-svh items-center justify-center bg-muted/40 p-4">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
       <OnboardingForm />
     </div>
   )

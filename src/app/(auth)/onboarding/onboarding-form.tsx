@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { useActionState } from "react"
 
 import { createOrganization } from "./actions"
@@ -26,8 +27,15 @@ export function OnboardingForm() {
   return (
     <Card className="w-full max-w-sm">
       <CardHeader>
-        <CardTitle>Creá tu forrajería</CardTitle>
-        <CardDescription>
+        <Image
+          src="/logo-mark.png"
+          alt="Mundo Animal"
+          width={72}
+          height={72}
+          className="mx-auto mb-1"
+        />
+        <CardTitle className="text-center">Creá tu forrajería</CardTitle>
+        <CardDescription className="text-center">
           Vas a ser el administrador de esta cuenta.
         </CardDescription>
       </CardHeader>

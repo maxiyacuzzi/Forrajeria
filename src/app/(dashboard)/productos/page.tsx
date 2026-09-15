@@ -7,15 +7,16 @@ import { ProductTable } from "./product-table"
 export default async function ProductosPage() {
   const supabase = await createClient()
 
-  const [{ data: products }, { data: profile }] = await Promise.all([
-    supabase
-      .from("products")
-      .select("*, product_categories(name)")
-      .order("name"),
-    supabase
-      .from("profiles")
-      .select("role")
-      .single(),
+  const [
+    { data: products },
+    { data: categories },
+    { data: productSuppliers },
+    { data: profile },
+  ] = await Promise.all([
+    supabase.from("products").select("*").order("name"),
+    supabase.from("product_categories").select("*"),
+    supabase.from("product_suppliers").select("product_id, suppliers(name)"),
+    supabase.from("profiles").select("role").single(),
   ])
 
   const canManage = profile?.role === "owner" || profile?.role === "deposito"
@@ -30,13 +31,27 @@ export default async function ProductosPage() {
           </p>
         </div>
         {canManage && (
-          <Button nativeButton={false} render={<Link href="/productos/nuevo" />}>
-            Nuevo producto
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              nativeButton={false}
+              render={<Link href="/productos/categorias" />}
+            >
+              Categorías
+            </Button>
+            <Button nativeButton={false} render={<Link href="/productos/nuevo" />}>
+              Nuevo producto
+            </Button>
+          </div>
         )}
       </div>
 
-      <ProductTable products={products ?? []} canManage={canManage} />
+      <ProductTable
+        products={products ?? []}
+        categories={categories ?? []}
+        productSuppliers={productSuppliers ?? []}
+        canManage={canManage}
+      />
     </div>
   )
 }

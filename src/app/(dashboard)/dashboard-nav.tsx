@@ -1,27 +1,32 @@
 "use client"
 
+import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
 import { signOut } from "../(auth)/actions"
 import { Button } from "@/components/ui/button"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { cn } from "@/lib/utils"
 import type { Database } from "@/lib/types/database.types"
 
 type Role = Database["public"]["Enums"]["user_role"]
 
 const NAV_ITEMS: { href: string; label: string; roles: Role[] }[] = [
+  { href: "/", label: "Inicio", roles: ["owner", "vendedor", "deposito"] },
+  { href: "/reportes", label: "Reportes", roles: ["owner"] },
+  { href: "/clientes", label: "Clientes", roles: ["owner", "vendedor", "deposito"] },
+  { href: "/fidelidad", label: "Fidelidad", roles: ["owner", "vendedor", "deposito"] },
+  { href: "/ventas", label: "Ventas", roles: ["owner", "vendedor", "deposito"] },
+  { href: "/caja", label: "Caja", roles: ["owner", "vendedor"] },
+  { href: "/gastos", label: "Gastos", roles: ["owner", "vendedor"] },
   { href: "/productos", label: "Productos", roles: ["owner", "vendedor", "deposito"] },
+  { href: "/proveedores", label: "Proveedores", roles: ["owner", "deposito"] },
   { href: "/stock", label: "Stock", roles: ["owner", "vendedor", "deposito"] },
   {
     href: "/stock/movimientos",
     label: "Movimientos",
     roles: ["owner", "vendedor", "deposito"],
-  },
-  {
-    href: "/fraccionamiento",
-    label: "Fraccionamiento",
-    roles: ["owner", "deposito"],
   },
 ]
 
@@ -37,12 +42,21 @@ export function DashboardNav({
   const pathname = usePathname()
 
   return (
-    <aside className="flex flex-col gap-4 border-b p-4 md:h-svh md:border-b-0 md:border-r md:p-6">
-      <div>
-        <p className="font-semibold leading-tight">{orgName}</p>
-        <p className="text-xs text-muted-foreground">
-          {fullName} · {ROLE_LABEL[role]}
-        </p>
+    <aside className="flex flex-col gap-4 border-b border-sidebar-border bg-sidebar p-4 text-sidebar-foreground md:h-svh md:border-b-0 md:border-r md:p-6">
+      <div className="flex items-center gap-2">
+        <Image
+          src="/logo-mark.png"
+          alt=""
+          width={36}
+          height={36}
+          className="shrink-0"
+        />
+        <div>
+          <p className="font-semibold leading-tight">{orgName}</p>
+          <p className="text-xs text-sidebar-foreground/70">
+            {fullName} · {ROLE_LABEL[role]}
+          </p>
+        </div>
       </div>
 
       <nav className="flex flex-row gap-1 overflow-x-auto md:flex-col">
@@ -51,8 +65,8 @@ export function DashboardNav({
             key={item.href}
             href={item.href}
             className={cn(
-              "rounded-md px-3 py-2 text-sm whitespace-nowrap hover:bg-muted",
-              pathname === item.href && "bg-muted font-medium"
+              "rounded-md px-3 py-2 text-sm whitespace-nowrap hover:bg-sidebar-accent",
+              pathname === item.href && "bg-sidebar-accent font-medium"
             )}
           >
             {item.label}
@@ -60,11 +74,19 @@ export function DashboardNav({
         ))}
       </nav>
 
-      <form action={signOut} className="mt-auto">
-        <Button type="submit" variant="ghost" size="sm">
-          Cerrar sesión
-        </Button>
-      </form>
+      <div className="mt-auto flex items-center justify-between gap-2">
+        <form action={signOut}>
+          <Button
+            type="submit"
+            variant="ghost"
+            size="sm"
+            className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
+          >
+            Cerrar sesión
+          </Button>
+        </form>
+        <ThemeToggle className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground" />
+      </div>
     </aside>
   )
 }

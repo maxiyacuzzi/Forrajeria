@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { useActionState, useState } from "react"
 
 import { signIn, signUp, type AuthActionState } from "../actions"
@@ -13,6 +14,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 const initialState: AuthActionState = { error: null }
 
@@ -30,13 +32,23 @@ export default function LoginPage() {
   const state = mode === "login" ? loginState : signupState
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-muted/40 p-4">
+    <div className="relative flex min-h-svh items-center justify-center bg-muted/40 p-4">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>
+          <Image
+            src="/logo-mark.png"
+            alt="Mundo Animal"
+            width={72}
+            height={72}
+            className="mx-auto mb-1"
+          />
+          <CardTitle className="text-center">
             {mode === "login" ? "Iniciar sesión" : "Crear cuenta"}
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-center">
             Sistema de gestión para forrajerías
           </CardDescription>
         </CardHeader>

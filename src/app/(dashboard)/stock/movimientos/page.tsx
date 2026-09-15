@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { Badge } from "@/components/ui/badge"
+import { formatQty } from "@/lib/stock-format"
+import { formatMoney } from "@/lib/pricing"
 import {
   Table,
   TableBody,
@@ -24,7 +26,7 @@ export default async function MovimientosPage() {
   const supabase = await createClient()
   const { data: movements } = await supabase
     .from("stock_movements")
-    .select("*, products(name, purchase_unit_label, sale_unit_label)")
+    .select("*, products(name, purchase_unit_label, sale_unit_label), suppliers(name)")
     .order("created_at", { ascending: false })
     .limit(200)
 
@@ -45,6 +47,8 @@ export default async function MovimientosPage() {
               <TableHead>Producto</TableHead>
               <TableHead>Tipo</TableHead>
               <TableHead>Cantidad</TableHead>
+              <TableHead>Proveedor</TableHead>
+              <TableHead>Costo unit.</TableHead>
               <TableHead>Nota</TableHead>
             </TableRow>
           </TableHeader>
@@ -74,7 +78,13 @@ export default async function MovimientosPage() {
                     }
                   >
                     {movement.quantity > 0 ? "+" : ""}
-                    {movement.quantity} {unitLabel}
+                    {formatQty(movement.quantity)} {unitLabel}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {movement.suppliers?.name ?? "—"}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {movement.unit_cost != null ? `$${formatMoney(movement.unit_cost)}` : "—"}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {movement.note ?? "—"}
