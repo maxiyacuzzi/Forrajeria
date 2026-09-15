@@ -7,13 +7,16 @@ on:
 jobs:
   cypress-run:
     runs-on: ubuntu-latest
+    # CYPRESS_TEST_EMAIL / CYPRESS_TEST_PASSWORD live as secrets on this
+    # GitHub Environment (Settings > Environments > test-cypress) rather than
+    # as plain repo secrets — env-scoped secrets are only visible to a job
+    # that declares this key.
+    environment: test-cypress
     env:
       # Supabase's publishable anon key for Stage — safe to keep here, same
       # as it's safe embedded in client JS.
       NEXT_PUBLIC_SUPABASE_URL: https://aavcpxcswvlkoqpqgmxg.supabase.co
       NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_P836ht1I5LVNYvMm2IrLfA_6DI5mvdE
-      # Real account login — must be repo secrets, never hardcoded here.
-      # Settings > Secrets and variables > Actions > New repository secret.
       CYPRESS_TEST_EMAIL: ${{ secrets.CYPRESS_TEST_EMAIL }}
       CYPRESS_TEST_PASSWORD: ${{ secrets.CYPRESS_TEST_PASSWORD }}
     steps:
