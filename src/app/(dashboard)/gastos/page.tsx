@@ -1,21 +1,22 @@
 import { createClient } from "@/lib/supabase/server"
+import { getUserRole } from "@/lib/user-profile"
 import { ExpenseTable } from "./expense-table"
 import { NewExpenseDialog } from "./new-expense-dialog"
 
 export default async function GastosPage() {
   const supabase = await createClient()
 
-  const [{ data: expenses }, { data: suppliers }, { data: profile }] = await Promise.all([
+  const [{ data: expenses }, { data: suppliers }, role] = await Promise.all([
     supabase
       .from("expenses")
       .select("*, suppliers(name)")
       .order("created_at", { ascending: false })
       .limit(200),
     supabase.from("suppliers").select("*").order("name"),
-    supabase.from("profiles").select("role").single(),
+    getUserRole(supabase),
   ])
 
-  const canManage = profile?.role === "owner" || profile?.role === "vendedor"
+  const canManage = role === "owner" || role === "vendedor"
 
   return (
     <div className="grid gap-6">

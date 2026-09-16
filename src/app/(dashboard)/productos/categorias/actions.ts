@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 
 import { createClient } from "@/lib/supabase/server"
+import { getUserOrgId } from "@/lib/user-profile"
 import { categorySchema, type CategoryFormValues } from "@/lib/validations/category"
 
 export type CategoryActionState = { error: string | null }
@@ -16,18 +17,15 @@ export async function createCategory(
   }
 
   const supabase = await createClient()
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("org_id")
-    .single()
+  const orgId = await getUserOrgId(supabase)
 
-  if (!profile?.org_id) {
+  if (!orgId) {
     return { error: "No se encontró la organización del usuario" }
   }
 
   const { error } = await supabase
     .from("product_categories")
-    .insert({ ...parsed.data, org_id: profile.org_id })
+    .insert({ ...parsed.data, org_id: orgId })
 
   if (error) {
     return {

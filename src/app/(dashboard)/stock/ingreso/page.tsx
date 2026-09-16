@@ -1,13 +1,14 @@
 import { redirect } from "next/navigation"
 
 import { createClient } from "@/lib/supabase/server"
+import { getUserRole } from "@/lib/user-profile"
 import { StockEntryForm } from "./stock-entry-form"
 
 export default async function IngresoStockPage() {
   const supabase = await createClient()
 
-  const { data: profile } = await supabase.from("profiles").select("role").single()
-  if (profile?.role !== "owner" && profile?.role !== "deposito") {
+  const role = await getUserRole(supabase)
+  if (role !== "owner" && role !== "deposito") {
     redirect("/stock")
   }
 

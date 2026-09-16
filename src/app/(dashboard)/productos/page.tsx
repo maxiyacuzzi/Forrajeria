@@ -1,25 +1,22 @@
 import Link from "next/link"
 
 import { createClient } from "@/lib/supabase/server"
+import { getUserRole } from "@/lib/user-profile"
 import { Button } from "@/components/ui/button"
 import { ProductTable } from "./product-table"
 
 export default async function ProductosPage() {
   const supabase = await createClient()
 
-  const [
-    { data: products },
-    { data: categories },
-    { data: productSuppliers },
-    { data: profile },
-  ] = await Promise.all([
-    supabase.from("products").select("*").order("name"),
-    supabase.from("product_categories").select("*"),
-    supabase.from("product_suppliers").select("product_id, suppliers(name)"),
-    supabase.from("profiles").select("role").single(),
-  ])
+  const [{ data: products }, { data: categories }, { data: productSuppliers }, role] =
+    await Promise.all([
+      supabase.from("products").select("*").order("name"),
+      supabase.from("product_categories").select("*"),
+      supabase.from("product_suppliers").select("product_id, suppliers(name)"),
+      getUserRole(supabase),
+    ])
 
-  const canManage = profile?.role === "owner" || profile?.role === "deposito"
+  const canManage = role === "owner" || role === "deposito"
 
   return (
     <div className="grid gap-6">

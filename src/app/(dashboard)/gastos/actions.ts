@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 
 import { createClient } from "@/lib/supabase/server"
+import { getUserOrgId } from "@/lib/user-profile"
 import {
   expenseSchema,
   expensePaymentSchema,
@@ -24,12 +25,9 @@ export async function createExpense(
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("org_id")
-    .single()
+  const orgId = await getUserOrgId(supabase)
 
-  if (!profile?.org_id || !user) {
+  if (!orgId || !user) {
     return { error: "No se encontró la organización del usuario" }
   }
 
@@ -45,7 +43,7 @@ export async function createExpense(
     .from("expenses")
     .insert({
       ...expenseValues,
-      org_id: profile.org_id,
+      org_id: orgId,
       created_by: user.id,
       cash_register_id: openRegister?.id ?? null,
     })

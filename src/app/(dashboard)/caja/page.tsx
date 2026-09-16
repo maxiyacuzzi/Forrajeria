@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { getUserRole } from "@/lib/user-profile"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -16,19 +17,18 @@ import { formatMoney } from "@/lib/pricing"
 export default async function CajaPage() {
   const supabase = await createClient()
 
-  const [{ data: openRegister }, { data: closedRegisters }, { data: profile }] =
-    await Promise.all([
-      supabase.from("cash_registers").select("*").eq("status", "open").maybeSingle(),
-      supabase
-        .from("cash_registers")
-        .select("*")
-        .eq("status", "closed")
-        .order("closed_at", { ascending: false })
-        .limit(20),
-      supabase.from("profiles").select("role").single(),
-    ])
+  const [{ data: openRegister }, { data: closedRegisters }, role] = await Promise.all([
+    supabase.from("cash_registers").select("*").eq("status", "open").maybeSingle(),
+    supabase
+      .from("cash_registers")
+      .select("*")
+      .eq("status", "closed")
+      .order("closed_at", { ascending: false })
+      .limit(20),
+    getUserRole(supabase),
+  ])
 
-  const canManage = profile?.role === "owner" || profile?.role === "vendedor"
+  const canManage = role === "owner" || role === "vendedor"
 
   let cashSalesSoFar = 0
   let cashExpensesSoFar = 0

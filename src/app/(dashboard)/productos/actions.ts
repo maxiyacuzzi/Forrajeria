@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
 
 import { createClient } from "@/lib/supabase/server"
+import { getUserOrgId } from "@/lib/user-profile"
 import { productSchema, type ProductFormValues } from "@/lib/validations/product"
 
 export type ProductActionState = { error: string | null }
@@ -17,15 +18,11 @@ export async function createProduct(
   }
 
   const supabase = await createClient()
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("org_id")
-    .single()
+  const orgId = await getUserOrgId(supabase)
 
-  if (!profile?.org_id) {
+  if (!orgId) {
     return { error: "No se encontró la organización del usuario" }
   }
-  const orgId = profile.org_id
 
   const { supplier_ids, ...productValues } = parsed.data
 
@@ -66,15 +63,11 @@ export async function updateProduct(
   }
 
   const supabase = await createClient()
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("org_id")
-    .single()
+  const orgId = await getUserOrgId(supabase)
 
-  if (!profile?.org_id) {
+  if (!orgId) {
     return { error: "No se encontró la organización del usuario" }
   }
-  const orgId = profile.org_id
 
   const { supplier_ids, ...productValues } = parsed.data
 

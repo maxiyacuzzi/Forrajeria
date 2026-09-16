@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
 
 import { createClient } from "@/lib/supabase/server"
+import { getUserOrgId } from "@/lib/user-profile"
 import { supplierSchema, type SupplierFormValues } from "@/lib/validations/supplier"
 import { computeAutoPrices, round2 } from "@/lib/pricing"
 
@@ -18,18 +19,15 @@ export async function createSupplier(
   }
 
   const supabase = await createClient()
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("org_id")
-    .single()
+  const orgId = await getUserOrgId(supabase)
 
-  if (!profile?.org_id) {
+  if (!orgId) {
     return { error: "No se encontró la organización del usuario" }
   }
 
   const { error } = await supabase.from("suppliers").insert({
     ...parsed.data,
-    org_id: profile.org_id,
+    org_id: orgId,
   })
 
   if (error) {

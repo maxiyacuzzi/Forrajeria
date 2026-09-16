@@ -2,6 +2,7 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 
 import { createClient } from "@/lib/supabase/server"
+import { getUserRole } from "@/lib/user-profile"
 import {
   REPORT_RANGES,
   REPORT_RANGE_LABEL,
@@ -33,8 +34,8 @@ export default async function ReportesPage({
   const { range: rangeParam } = await searchParams
   const supabase = await createClient()
 
-  const { data: profile } = await supabase.from("profiles").select("role").single()
-  if (profile?.role !== "owner") {
+  const role = await getUserRole(supabase)
+  if (role !== "owner") {
     redirect("/")
   }
 

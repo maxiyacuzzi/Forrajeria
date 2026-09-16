@@ -1,18 +1,19 @@
 import Link from "next/link"
 
 import { createClient } from "@/lib/supabase/server"
+import { getUserRole } from "@/lib/user-profile"
 import { Button } from "@/components/ui/button"
 import { StockTable } from "./stock-table"
 
 export default async function StockPage() {
   const supabase = await createClient()
 
-  const [{ data: products }, { data: profile }] = await Promise.all([
+  const [{ data: products }, role] = await Promise.all([
     supabase.from("products").select("*").eq("is_active", true).order("name"),
-    supabase.from("profiles").select("role").single(),
+    getUserRole(supabase),
   ])
 
-  const canManage = profile?.role === "owner" || profile?.role === "deposito"
+  const canManage = role === "owner" || role === "deposito"
 
   return (
     <div className="grid gap-6">

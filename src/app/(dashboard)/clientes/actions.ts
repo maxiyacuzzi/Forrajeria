@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
 
 import { createClient } from "@/lib/supabase/server"
+import { getUserOrgId } from "@/lib/user-profile"
 import { customerSchema, type CustomerFormValues } from "@/lib/validations/customer"
 
 export type CustomerActionState = { error: string | null }
@@ -17,19 +18,16 @@ export async function createCustomer(
   }
 
   const supabase = await createClient()
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("org_id")
-    .single()
+  const orgId = await getUserOrgId(supabase)
 
-  if (!profile?.org_id) {
+  if (!orgId) {
     return { error: "No se encontró la organización del usuario" }
   }
 
   const { error } = await supabase.from("customers").insert({
     ...parsed.data,
     dni: parsed.data.dni ? parsed.data.dni.replace(/\D/g, "") : null,
-    org_id: profile.org_id,
+    org_id: orgId,
   })
 
   if (error) {
@@ -83,14 +81,14 @@ export async function adjustCustomerProductLoyalty(
   }
 
   const supabase = await createClient()
-  const { data: profile } = await supabase.from("profiles").select("org_id").single()
-  if (!profile?.org_id) {
+  const orgId = await getUserOrgId(supabase)
+  if (!orgId) {
     return { error: "No se encontró la organización del usuario" }
   }
 
   const { error } = await supabase.from("customer_product_loyalty").upsert(
     {
-      org_id: profile.org_id,
+      org_id: orgId,
       customer_id: customerId,
       product_id: productId,
       progress_qty: progressQty,

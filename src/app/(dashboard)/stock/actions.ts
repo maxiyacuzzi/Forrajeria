@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
 import { createClient } from "@/lib/supabase/server"
+import { getUserOrgId } from "@/lib/user-profile"
 import { stockAdjustmentSchema } from "@/lib/validations/stock"
 import { stockEntrySchema } from "@/lib/validations/stock-entry"
 import { computeAutoPrices, costPerUnitFromTotal } from "@/lib/pricing"
@@ -23,12 +24,9 @@ export async function adjustStock(
     data: { user },
   } = await supabase.auth.getUser()
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("org_id")
-    .single()
+  const orgId = await getUserOrgId(supabase)
 
-  if (!profile?.org_id || !user) {
+  if (!orgId || !user) {
     return { error: "No se encontró la organización del usuario" }
   }
 
@@ -38,7 +36,7 @@ export async function adjustStock(
   const signedQuantity = type === "rotura_humedad" ? -Math.abs(quantity) : quantity
 
   const { error } = await supabase.from("stock_movements").insert({
-    org_id: profile.org_id,
+    org_id: orgId,
     product_id,
     unit,
     type,
@@ -69,12 +67,9 @@ export async function registerStockEntry(
     data: { user },
   } = await supabase.auth.getUser()
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("org_id")
-    .single()
+  const orgId = await getUserOrgId(supabase)
 
-  if (!profile?.org_id || !user) {
+  if (!orgId || !user) {
     return { error: "No se encontró la organización del usuario" }
   }
 
@@ -101,7 +96,7 @@ export async function registerStockEntry(
         : null
 
     const { error: movementError } = await supabase.from("stock_movements").insert({
-      org_id: profile.org_id,
+      org_id: orgId,
       product_id: item.product_id,
       supplier_id: supplier_id || null,
       unit: item.unit,
@@ -171,7 +166,7 @@ export async function registerStockEntry(
     const { data: expense, error: expenseError } = await supabase
       .from("expenses")
       .insert({
-        org_id: profile.org_id,
+        org_id: orgId,
         supplier_id: supplier_id || null,
         description: supplierName
           ? `Mercadería de ${supplierName}`

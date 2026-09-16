@@ -6,6 +6,7 @@ import { ImageIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { createClient } from "@/lib/supabase/client"
+import { getUserOrgId } from "@/lib/user-profile"
 import { Button } from "@/components/ui/button"
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024
@@ -38,15 +39,15 @@ export function ImageUpload({
     setUploading(true)
     const supabase = createClient()
 
-    const { data: profile } = await supabase.from("profiles").select("org_id").single()
-    if (!profile?.org_id) {
+    const orgId = await getUserOrgId(supabase)
+    if (!orgId) {
       toast.error("No se encontró la organización del usuario")
       setUploading(false)
       return
     }
 
     const ext = file.name.includes(".") ? file.name.split(".").pop() : "jpg"
-    const path = `${profile.org_id}/${crypto.randomUUID()}.${ext}`
+    const path = `${orgId}/${crypto.randomUUID()}.${ext}`
 
     const { error } = await supabase.storage.from(bucket).upload(path, file)
     setUploading(false)
