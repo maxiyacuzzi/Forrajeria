@@ -54,6 +54,10 @@ describe("Manejo de errores (cy.intercept)", () => {
     cy.get('input[name="cost_price"]').type("{selectall}1000")
     cy.contains("button", "Crear producto").click()
     cy.location("pathname", { timeout: 15000 }).should("eq", "/productos")
-    cy.contains("tr", productName).should("be.visible")
+    // The shared test account accumulates products across every Cypress run, so a
+    // freshly created row isn't guaranteed to land inside the current scroll of the
+    // (now internally-scrolling) main panel — assert it exists, not that it's
+    // currently scrolled into view.
+    cy.contains("tr", productName).should("exist")
   })
 })

@@ -42,7 +42,7 @@ export function DashboardNav({
   const pathname = usePathname()
 
   return (
-    <aside className="flex flex-col gap-4 border-b border-sidebar-border bg-sidebar p-4 text-sidebar-foreground md:h-svh md:border-b-0 md:border-r md:p-6">
+    <aside className="flex flex-col gap-4 border-b border-sidebar-border bg-sidebar p-4 text-sidebar-foreground md:h-svh md:overflow-y-auto md:border-b-0 md:border-r md:p-6">
       <div className="flex items-center gap-2">
         <Image
           src="/logo-mark.png"
