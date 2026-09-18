@@ -1,28 +1,30 @@
-import type { Metadata, Viewport } from "next";
-import { Inter, Geist_Mono } from "next/font/google";
-import "./globals.css";
-import { Toaster } from "@/components/ui/sonner";
-import { ThemeProvider } from "@/components/theme-provider";
+import type { Metadata, Viewport } from "next"
+import { Inter, Geist_Mono } from "next/font/google"
+import "./globals.css"
+import { Toaster } from "@/components/ui/sonner"
+import { ThemeProvider } from "@/components/theme-provider"
 
 const inter = Inter({
   variable: "--font-sans",
   subsets: ["latin"],
-});
+})
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
-});
+})
 
 export const metadata: Metadata = {
   title: "Forrajería",
   description: "Gestión de stock, fraccionamiento y ventas para forrajerías",
   manifest: "/manifest.json",
-};
+}
 
 export const viewport: Viewport = {
   themeColor: "#3AAA35",
-};
+  width: "device-width",
+  initialScale: 1,
+}
 
 export default function RootLayout({
   children,
@@ -47,5 +49,5 @@ export default function RootLayout({
         </ThemeProvider>
       </body>
     </html>
-  );
+  )
 }

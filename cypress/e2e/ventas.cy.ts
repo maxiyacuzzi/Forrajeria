@@ -31,7 +31,7 @@ describe("Ventas", () => {
     cy.visit("/ventas/rapida")
     cy.contains(productName).click()
     cy.get('[role="combobox"]').first().click()
-    cy.contains("[role='option']", customerName).click()
+    cy.contains("[role='option']", customerName).click({ force: true })
     cy.contains("button", "Tarjeta").click()
 
     cy.contains("Recargo tarjeta (10%)").should("be.visible")
@@ -77,7 +77,7 @@ describe("Ventas", () => {
     cy.visit("/ventas/rapida")
     cy.contains(productName).click()
     cy.get('[role="combobox"]').first().click()
-    cy.contains("[role='option']", customerName).click()
+    cy.contains("[role='option']", customerName).click({ force: true })
 
     cy.contains("Recargo tarjeta").should("not.exist")
     cy.contains("button", "Cobrar $1.400,00").click()

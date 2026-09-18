@@ -39,7 +39,10 @@ describe("Reportes", () => {
     cy.contains("tr", description).should("contain", "Pendiente")
 
     cy.visit("/reportes")
-    cy.contains("h2", "Deudas a proveedores").should("be.visible")
+    // With enough accumulated report data this heading can sit below the fold of
+    // the (now internally-scrolling) main panel — assert it exists, not that it's
+    // currently scrolled into view.
+    cy.contains("h2", "Deudas a proveedores").should("exist")
     cy.contains("tr", supplierName).should("contain", "$2.000,00")
     cy.contains("tr", supplierName).click()
     cy.location("pathname", { timeout: 15000 }).should("match", /\/proveedores\/[0-9a-f-]+$/)
