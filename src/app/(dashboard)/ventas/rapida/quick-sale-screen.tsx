@@ -5,11 +5,24 @@ import Image from "next/image"
 import { ImageIcon, MinusIcon, PlusIcon, TrashIcon } from "lucide-react"
 import { toast } from "sonner"
 
-import { createSale, getCustomerLoyalty, type CustomerLoyaltyProgress } from "../actions"
+import {
+  createSale,
+  getCustomerLoyalty,
+  type CustomerLoyaltyProgress,
+} from "../actions"
 import type { SaleFormValues } from "@/lib/validations/sale"
-import { PAYMENT_METHODS, PAYMENT_METHOD_LABEL } from "@/lib/validations/expense"
+import {
+  PAYMENT_METHODS,
+  PAYMENT_METHOD_LABEL,
+} from "@/lib/validations/expense"
 import { simulateLoyaltyDiscounts } from "@/lib/loyalty"
-import { halfBagPrice, halfBagQuantity, formatMoney, round2, CARD_SURCHARGE_RATE } from "@/lib/pricing"
+import {
+  halfBagPrice,
+  halfBagQuantity,
+  formatMoney,
+  round2,
+  CARD_SURCHARGE_RATE,
+} from "@/lib/pricing"
 import { formatPurchaseLabel, isWeightUnit } from "@/lib/stock-format"
 import { categoryPath } from "@/lib/category-tree"
 import { cn } from "@/lib/utils"
@@ -73,14 +86,24 @@ export function QuickSaleScreen({
   const [search, setSearch] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [cart, setCart] = useState<CartLine[]>([])
-  const [customerId, setCustomerId] = useState("")
+  const [customerId, setCustomerId] = useState(
+    () => customers.find((c) => c.is_default)?.id ?? ""
+  )
   const [paymentMethod, setPaymentMethod] =
     useState<SaleFormValues["payment_method"]>("efectivo")
-  const [customerLoyalty, setCustomerLoyalty] = useState<CustomerLoyaltyProgress[]>([])
+  const [customerLoyalty, setCustomerLoyalty] = useState<
+    CustomerLoyaltyProgress[]
+  >([])
   const [pending, startTransition] = useTransition()
 
+  const isDefaultCustomer =
+    customers.find((c) => c.id === customerId)?.is_default ?? false
+
   useEffect(() => {
-    if (!customerId) return
+    // "Consumidor Final" is shared by every walk-in sale, so its purchase
+    // history isn't any one person's — no need to fetch fidelidad for it (the
+    // loyaltyByProduct lookup below also ignores it, in case stale data lingers).
+    if (!customerId || isDefaultCustomer) return
     let cancelled = false
     getCustomerLoyalty(customerId).then((data) => {
       if (!cancelled) setCustomerLoyalty(data)
@@ -88,10 +111,12 @@ export function QuickSaleScreen({
     return () => {
       cancelled = true
     }
-  }, [customerId])
+  }, [customerId, isDefaultCustomer])
 
   const categoryChips = useMemo(() => {
-    const usedIds = new Set(products.map((p) => p.category_id).filter((id): id is string => !!id))
+    const usedIds = new Set(
+      products.map((p) => p.category_id).filter((id): id is string => !!id)
+    )
     return [...usedIds]
       .map((id) => ({ id, path: categoryPath(id, categories) }))
       .sort((a, b) => a.path.localeCompare(b.path))
@@ -101,7 +126,10 @@ export function QuickSaleScreen({
     if (categoryFilter && product.category_id !== categoryFilter) return false
     if (search.trim()) {
       const q = search.trim().toLowerCase()
-      if (!product.name.toLowerCase().includes(q) && !product.brand?.toLowerCase().includes(q)) {
+      if (
+        !product.name.toLowerCase().includes(q) &&
+        !product.brand?.toLowerCase().includes(q)
+      ) {
         return false
       }
     }
@@ -109,21 +137,34 @@ export function QuickSaleScreen({
   })
 
   function addToCart(product: Product) {
-    const unit: CartLine["unit"] = product.unit_type === "fraccionable" ? "sale" : "purchase"
+    const unit: CartLine["unit"] =
+      product.unit_type === "fraccionable" ? "sale" : "purchase"
     setCart((prev) => {
-      const existing = prev.find((l) => l.product_id === product.id && l.unit === unit)
+      const existing = prev.find(
+        (l) => l.product_id === product.id && l.unit === unit
+      )
       if (existing) {
         return prev.map((l) =>
           l === existing ? { ...l, quantity: l.quantity + 1 } : l
         )
       }
-      return [...prev, { product_id: product.id, unit, quantity: 1, unit_price: priceForUnit(product, unit) }]
+      return [
+        ...prev,
+        {
+          product_id: product.id,
+          unit,
+          quantity: 1,
+          unit_price: priceForUnit(product, unit),
+        },
+      ]
     })
   }
 
   function updateQuantity(index: number, quantity: number) {
     setCart((prev) =>
-      prev.map((l, i) => (i === index ? { ...l, quantity: Math.max(0.01, quantity) } : l))
+      prev.map((l, i) =>
+        i === index ? { ...l, quantity: Math.max(0.01, quantity) } : l
+      )
     )
   }
 
@@ -141,7 +182,9 @@ export function QuickSaleScreen({
 
   function updatePrice(index: number, unit_price: number) {
     setCart((prev) =>
-      prev.map((l, i) => (i === index ? { ...l, unit_price: Math.max(0, unit_price) } : l))
+      prev.map((l, i) =>
+        i === index ? { ...l, unit_price: Math.max(0, unit_price) } : l
+      )
     )
   }
 
@@ -150,7 +193,12 @@ export function QuickSaleScreen({
       prev.map((l, i) => {
         if (i !== index) return l
         const product = productById.get(l.product_id)
-        return { ...l, unit, quantity: 1, unit_price: priceForUnit(product, unit) }
+        return {
+          ...l,
+          unit,
+          quantity: 1,
+          unit_price: priceForUnit(product, unit),
+        }
       })
     )
   }
@@ -162,7 +210,12 @@ export function QuickSaleScreen({
         const product = productById.get(l.product_id)
         const preset = halfBagPreset(product)
         if (!preset) return l
-        return { ...l, unit: "sale", quantity: preset.quantity, unit_price: preset.unit_price }
+        return {
+          ...l,
+          unit: "sale",
+          quantity: preset.quantity,
+          unit_price: preset.unit_price,
+        }
       })
     )
   }
@@ -174,12 +227,20 @@ export function QuickSaleScreen({
   const productById = new Map(products.map((p) => [p.id, p]))
   const subtotal = cart.reduce((sum, l) => sum + l.quantity * l.unit_price, 0)
 
-  const loyaltyByProduct = customerId
-    ? new Map(customerLoyalty.map((l) => [l.product_id, l]))
-    : new Map()
-  const cartLoyalty = simulateLoyaltyDiscounts(cart, productById, loyaltyByProduct)
+  const loyaltyByProduct =
+    customerId && !isDefaultCustomer
+      ? new Map(customerLoyalty.map((l) => [l.product_id, l]))
+      : new Map()
+  const cartLoyalty = simulateLoyaltyDiscounts(
+    cart,
+    productById,
+    loyaltyByProduct
+  )
   const discount = cartLoyalty.reduce((sum, l) => sum + l.discount, 0)
-  const surcharge = paymentMethod === "tarjeta" ? round2((subtotal - discount) * CARD_SURCHARGE_RATE) : 0
+  const surcharge =
+    paymentMethod === "tarjeta"
+      ? round2((subtotal - discount) * CARD_SURCHARGE_RATE)
+      : 0
   const total = subtotal - discount + surcharge
 
   function handleCheckout() {
@@ -195,7 +256,10 @@ export function QuickSaleScreen({
     startTransition(async () => {
       const result = await createSale({
         customer_id: customerId,
-        items: cart.map((l) => ({ ...l, quantity: Number(l.quantity.toFixed(3)) })),
+        items: cart.map((l) => ({
+          ...l,
+          quantity: Number(l.quantity.toFixed(3)),
+        })),
         payment_method: paymentMethod,
       })
       if (result?.error) toast.error(result.error)
@@ -204,7 +268,7 @@ export function QuickSaleScreen({
 
   return (
     <div className="flex h-[calc(100svh-2rem)] flex-col gap-4 lg:h-[calc(100svh-4rem)] lg:flex-row">
-      <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
         <Input
           placeholder="Buscar producto..."
           value={search}
@@ -263,10 +327,15 @@ export function QuickSaleScreen({
                 {product.name}
               </p>
               <p className="text-sm text-muted-foreground">
-                ${formatMoney(
-                  priceForUnit(product, product.unit_type === "fraccionable" ? "sale" : "purchase")
+                $
+                {formatMoney(
+                  priceForUnit(
+                    product,
+                    product.unit_type === "fraccionable" ? "sale" : "purchase"
+                  )
                 )}
-                {product.unit_type === "fraccionable" && `/${product.sale_unit_label}`}
+                {product.unit_type === "fraccionable" &&
+                  `/${product.sale_unit_label}`}
               </p>
             </button>
           ))}
@@ -315,17 +384,26 @@ export function QuickSaleScreen({
             cart.map((line, index) => {
               const product = productById.get(line.product_id)
               const unitLabel =
-                line.unit === "sale" ? product?.sale_unit_label : product?.purchase_unit_label
+                line.unit === "sale"
+                  ? product?.sale_unit_label
+                  : product?.purchase_unit_label
               const sellByAmount = isWeightUnit(unitLabel)
               const amount = line.quantity * line.unit_price
               const lineReward = cartLoyalty[index]?.ready
 
               return (
-                <div key={`${line.product_id}-${line.unit}`} className="grid gap-1.5 rounded-md border p-2">
+                <div
+                  key={`${line.product_id}-${line.unit}`}
+                  className="grid gap-1.5 rounded-md border p-2"
+                >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex min-w-0 items-center gap-1.5">
-                      <p className="truncate text-sm font-medium">{product?.name}</p>
-                      {lineReward && <Badge className="shrink-0">50% OFF</Badge>}
+                      <p className="truncate text-sm font-medium">
+                        {product?.name}
+                      </p>
+                      {lineReward && (
+                        <Badge className="shrink-0">50% OFF</Badge>
+                      )}
                     </div>
                     <Button
                       type="button"
@@ -354,7 +432,9 @@ export function QuickSaleScreen({
                         <Button
                           type="button"
                           size="xs"
-                          variant={isHalfBagLine(line, product) ? "default" : "outline"}
+                          variant={
+                            isHalfBagLine(line, product) ? "default" : "outline"
+                          }
                           onClick={() => selectHalfBag(index)}
                         >
                           Media bolsa
@@ -363,7 +443,9 @@ export function QuickSaleScreen({
                       <Button
                         type="button"
                         size="xs"
-                        variant={line.unit === "purchase" ? "default" : "outline"}
+                        variant={
+                          line.unit === "purchase" ? "default" : "outline"
+                        }
                         onClick={() => updateUnit(index, "purchase")}
                       >
                         Bolsa ({product.purchase_unit_label})
@@ -377,10 +459,14 @@ export function QuickSaleScreen({
                       type="number"
                       step="1"
                       value={line.unit_price}
-                      onChange={(e) => updatePrice(index, e.target.valueAsNumber || 0)}
+                      onChange={(e) =>
+                        updatePrice(index, e.target.valueAsNumber || 0)
+                      }
                       className="h-8 w-24 text-center"
                     />
-                    <span className="text-xs text-muted-foreground">/{unitLabel}</span>
+                    <span className="text-xs text-muted-foreground">
+                      /{unitLabel}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     {sellByAmount ? (
@@ -399,7 +485,14 @@ export function QuickSaleScreen({
                           className="h-9 w-24 text-center text-base"
                         />
                         <span className="shrink-0 text-xs text-muted-foreground">
-                          = {product ? formatPurchaseLabel(product, line.unit, line.quantity) : ""}
+                          ={" "}
+                          {product
+                            ? formatPurchaseLabel(
+                                product,
+                                line.unit,
+                                line.quantity
+                              )
+                            : ""}
                         </span>
                       </>
                     ) : (
@@ -408,7 +501,9 @@ export function QuickSaleScreen({
                           type="button"
                           variant="outline"
                           size="icon-sm"
-                          onClick={() => updateQuantity(index, line.quantity - 1)}
+                          onClick={() =>
+                            updateQuantity(index, line.quantity - 1)
+                          }
                         >
                           <MinusIcon />
                         </Button>
@@ -416,20 +511,26 @@ export function QuickSaleScreen({
                           type="number"
                           step="0.01"
                           value={line.quantity}
-                          onChange={(e) => updateQuantity(index, e.target.valueAsNumber || 0)}
+                          onChange={(e) =>
+                            updateQuantity(index, e.target.valueAsNumber || 0)
+                          }
                           className="h-9 w-16 text-center"
                         />
                         <Button
                           type="button"
                           variant="outline"
                           size="icon-sm"
-                          onClick={() => updateQuantity(index, line.quantity + 1)}
+                          onClick={() =>
+                            updateQuantity(index, line.quantity + 1)
+                          }
                         >
                           <PlusIcon />
                         </Button>
                       </>
                     )}
-                    <p className="ml-auto shrink-0 text-sm font-medium">${formatMoney(amount)}</p>
+                    <p className="ml-auto shrink-0 text-sm font-medium">
+                      ${formatMoney(amount)}
+                    </p>
                   </div>
                 </div>
               )

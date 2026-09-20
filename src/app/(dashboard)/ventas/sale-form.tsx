@@ -5,13 +5,26 @@ import { useFieldArray, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { PlusIcon, TrashIcon } from "lucide-react"
 
-import { createSale, getCustomerLoyalty, type CustomerLoyaltyProgress } from "./actions"
+import {
+  createSale,
+  getCustomerLoyalty,
+  type CustomerLoyaltyProgress,
+} from "./actions"
 import { saleSchema, type SaleFormValues } from "@/lib/validations/sale"
 import { requiredNumber } from "@/lib/number-input"
 import { simulateLoyaltyDiscounts } from "@/lib/loyalty"
-import { halfBagPrice, halfBagQuantity, formatMoney, round2, CARD_SURCHARGE_RATE } from "@/lib/pricing"
+import {
+  halfBagPrice,
+  halfBagQuantity,
+  formatMoney,
+  round2,
+  CARD_SURCHARGE_RATE,
+} from "@/lib/pricing"
 import { formatPurchaseLabel, isWeightUnit } from "@/lib/stock-format"
-import { PAYMENT_METHODS, PAYMENT_METHOD_LABEL } from "@/lib/validations/expense"
+import {
+  PAYMENT_METHODS,
+  PAYMENT_METHOD_LABEL,
+} from "@/lib/validations/expense"
 import type { Database } from "@/lib/types/database.types"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -54,7 +67,11 @@ function halfBagPreset(product: Product | undefined) {
   return { quantity, unit_price: Number((amount / quantity).toFixed(2)) }
 }
 
-function isHalfBagItem(unit: string | undefined, quantity: number, product: Product | undefined) {
+function isHalfBagItem(
+  unit: string | undefined,
+  quantity: number,
+  product: Product | undefined
+) {
   if (unit !== "sale") return false
   const preset = halfBagPreset(product)
   return preset != null && Math.abs(quantity - preset.quantity) < 0.001
@@ -73,7 +90,7 @@ export function SaleForm({
   const form = useForm<SaleFormValues>({
     resolver: zodResolver(saleSchema),
     defaultValues: {
-      customer_id: "",
+      customer_id: customers.find((c) => c.is_default)?.id ?? "",
       note: "",
       payment_method: "efectivo",
       items: [{ product_id: "", unit: "purchase", quantity: 1, unit_price: 0 }],
@@ -93,10 +110,17 @@ export function SaleForm({
     0
   )
 
-  const [customerLoyalty, setCustomerLoyalty] = useState<CustomerLoyaltyProgress[]>([])
+  const [customerLoyalty, setCustomerLoyalty] = useState<
+    CustomerLoyaltyProgress[]
+  >([])
+  const isDefaultCustomer =
+    customers.find((c) => c.id === customerId)?.is_default ?? false
 
   useEffect(() => {
-    if (!customerId) return
+    // "Consumidor Final" is shared by every walk-in sale, so its purchase
+    // history isn't any one person's — no need to fetch fidelidad for it (the
+    // loyaltyByProduct lookup below also ignores it, in case stale data lingers).
+    if (!customerId || isDefaultCustomer) return
     let cancelled = false
     getCustomerLoyalty(customerId).then((data) => {
       if (!cancelled) setCustomerLoyalty(data)
@@ -104,15 +128,23 @@ export function SaleForm({
     return () => {
       cancelled = true
     }
-  }, [customerId])
+  }, [customerId, isDefaultCustomer])
 
   const productById = new Map(products.map((p) => [p.id, p]))
-  const loyaltyByProduct = customerId
-    ? new Map(customerLoyalty.map((l) => [l.product_id, l]))
-    : new Map()
-  const cartLoyalty = simulateLoyaltyDiscounts(items, productById, loyaltyByProduct)
+  const loyaltyByProduct =
+    customerId && !isDefaultCustomer
+      ? new Map(customerLoyalty.map((l) => [l.product_id, l]))
+      : new Map()
+  const cartLoyalty = simulateLoyaltyDiscounts(
+    items,
+    productById,
+    loyaltyByProduct
+  )
   const discount = cartLoyalty.reduce((sum, l) => sum + l.discount, 0)
-  const surcharge = paymentMethod === "tarjeta" ? round2((subtotal - discount) * CARD_SURCHARGE_RATE) : 0
+  const surcharge =
+    paymentMethod === "tarjeta"
+      ? round2((subtotal - discount) * CARD_SURCHARGE_RATE)
+      : 0
   const total = subtotal - discount + surcharge
 
   function onSubmit(values: SaleFormValues) {
@@ -131,7 +163,10 @@ export function SaleForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="grid max-w-2xl gap-5">
+      <form
+        onSubmit={form.handleSubmit(onSubmit)}
+        className="grid max-w-2xl gap-5"
+      >
         <FormField
           control={form.control}
           name="customer_id"
@@ -156,7 +191,9 @@ export function SaleForm({
                 <SelectContent>
                   {customers.map((customer) => (
                     <SelectItem key={customer.id} value={customer.id}>
-                      {customer.dni ? `${customer.name} (DNI ${customer.dni})` : customer.name}
+                      {customer.dni
+                        ? `${customer.name} (DNI ${customer.dni})`
+                        : customer.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -201,9 +238,15 @@ export function SaleForm({
                           onValueChange={(value) => {
                             field.onChange(value)
                             const product = products.find((p) => p.id === value)
-                            const unit = product?.unit_type === "fraccionable" ? "sale" : "purchase"
+                            const unit =
+                              product?.unit_type === "fraccionable"
+                                ? "sale"
+                                : "purchase"
                             form.setValue(`items.${index}.unit`, unit)
-                            form.setValue(`items.${index}.unit_price`, priceForUnit(product, unit))
+                            form.setValue(
+                              `items.${index}.unit_price`,
+                              priceForUnit(product, unit)
+                            )
                           }}
                           items={products.map((product) => ({
                             value: product.id,
@@ -227,7 +270,9 @@ export function SaleForm({
                       </FormItem>
                     )}
                   />
-                  {cartLoyalty[index]?.ready && <Badge className="mt-2 shrink-0">50% OFF</Badge>}
+                  {cartLoyalty[index]?.ready && (
+                    <Badge className="mt-2 shrink-0">50% OFF</Badge>
+                  )}
                   <Button
                     type="button"
                     variant="ghost"
@@ -246,7 +291,8 @@ export function SaleForm({
                       type="button"
                       size="sm"
                       variant={
-                        unit === "sale" && !isHalfBagItem(unit, quantity, selectedProduct)
+                        unit === "sale" &&
+                        !isHalfBagItem(unit, quantity, selectedProduct)
                           ? "default"
                           : "outline"
                       }
@@ -265,14 +311,22 @@ export function SaleForm({
                         type="button"
                         size="sm"
                         variant={
-                          isHalfBagItem(unit, quantity, selectedProduct) ? "default" : "outline"
+                          isHalfBagItem(unit, quantity, selectedProduct)
+                            ? "default"
+                            : "outline"
                         }
                         onClick={() => {
                           const preset = halfBagPreset(selectedProduct)
                           if (!preset) return
                           form.setValue(`items.${index}.unit`, "sale")
-                          form.setValue(`items.${index}.quantity`, preset.quantity)
-                          form.setValue(`items.${index}.unit_price`, preset.unit_price)
+                          form.setValue(
+                            `items.${index}.quantity`,
+                            preset.quantity
+                          )
+                          form.setValue(
+                            `items.${index}.unit_price`,
+                            preset.unit_price
+                          )
                         }}
                       >
                         Media bolsa
@@ -301,7 +355,9 @@ export function SaleForm({
                     name={`items.${index}.quantity`}
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Cantidad {unitLabel ? `(${unitLabel})` : ""}</FormLabel>
+                        <FormLabel>
+                          Cantidad {unitLabel ? `(${unitLabel})` : ""}
+                        </FormLabel>
                         <FormControl>
                           <Input
                             type="number"
@@ -350,11 +406,18 @@ export function SaleForm({
                         step="1"
                         placeholder="Ej: 4000"
                         disabled={unitPrice <= 0}
-                        value={unitPrice > 0 ? Number((quantity * unitPrice).toFixed(2)) : ""}
+                        value={
+                          unitPrice > 0
+                            ? Number((quantity * unitPrice).toFixed(2))
+                            : ""
+                        }
                         onChange={(e) => {
                           const amount = e.target.valueAsNumber
                           if (!Number.isNaN(amount) && unitPrice > 0) {
-                            form.setValue(`items.${index}.quantity`, amount / unitPrice)
+                            form.setValue(
+                              `items.${index}.quantity`,
+                              amount / unitPrice
+                            )
                           }
                         }}
                       />
@@ -362,7 +425,11 @@ export function SaleForm({
                     <p className="text-xs text-muted-foreground">
                       Equivale a{" "}
                       {selectedProduct
-                        ? formatPurchaseLabel(selectedProduct, unit as "purchase" | "sale", quantity)
+                        ? formatPurchaseLabel(
+                            selectedProduct,
+                            unit as "purchase" | "sale",
+                            quantity
+                          )
                         : `${quantity} ${unitLabel}`}
                       .
                     </p>
@@ -378,7 +445,12 @@ export function SaleForm({
             size="sm"
             className="w-fit"
             onClick={() =>
-              append({ product_id: "", unit: "purchase", quantity: 1, unit_price: 0 })
+              append({
+                product_id: "",
+                unit: "purchase",
+                quantity: 1,
+                unit_price: 0,
+              })
             }
           >
             <PlusIcon /> Agregar producto
@@ -387,7 +459,9 @@ export function SaleForm({
 
         <div className="grid gap-1 text-sm">
           {(discount > 0 || surcharge > 0) && (
-            <p className="text-muted-foreground">Subtotal: ${formatMoney(subtotal)}</p>
+            <p className="text-muted-foreground">
+              Subtotal: ${formatMoney(subtotal)}
+            </p>
           )}
           {discount > 0 && (
             <p className="text-muted-foreground">

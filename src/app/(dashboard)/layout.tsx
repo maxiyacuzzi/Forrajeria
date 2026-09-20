@@ -28,13 +28,13 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="min-h-svh md:grid md:grid-cols-[220px_1fr]">
+    <div className="min-h-svh md:grid md:h-svh md:grid-cols-[220px_1fr] md:overflow-hidden">
       <DashboardNav
         orgName={profile.organizations?.name ?? ""}
         fullName={profile.full_name}
         role={profile.role}
       />
-      <main className="p-4 md:p-8">{children}</main>
+      <main className="p-4 md:overflow-y-auto md:p-8">{children}</main>
     </div>
   )
 }

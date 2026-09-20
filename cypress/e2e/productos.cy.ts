@@ -14,7 +14,11 @@ describe("Productos", () => {
     cy.contains("button", "Crear producto").click()
 
     cy.location("pathname", { timeout: 15000 }).should("eq", "/productos")
-    cy.contains(name).should("be.visible")
+    // The shared test account accumulates products across every Cypress run, so a
+    // freshly created row isn't guaranteed to land inside the current scroll of the
+    // (now internally-scrolling) main panel — assert it exists, not that it's
+    // currently scrolled into view.
+    cy.contains(name).should("exist")
   })
 
   it("crea un producto fraccionable con precio por envase y por kg", () => {
@@ -55,6 +59,6 @@ describe("Productos", () => {
 
     cy.contains("button", "Crear producto").click()
     cy.location("pathname", { timeout: 15000 }).should("eq", "/productos")
-    cy.contains(name).should("be.visible")
+    cy.contains(name).should("exist")
   })
 })
