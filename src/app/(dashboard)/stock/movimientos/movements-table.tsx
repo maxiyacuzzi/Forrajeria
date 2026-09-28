@@ -27,6 +27,7 @@ const TYPE_LABEL: Record<string, string> = {
   mezcla_producto: "Producto de mezcla",
   ajuste_manual: "Ajuste manual",
   rotura_humedad: "Rotura / humedad",
+  anulacion_venta: "Anulación de venta",
 }
 
 type Movement = Database["public"]["Tables"]["stock_movements"]["Row"] & {

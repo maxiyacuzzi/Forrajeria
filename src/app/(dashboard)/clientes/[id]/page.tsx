@@ -32,7 +32,7 @@ export default async function EditarClientePage({
       supabase
         .from("sales")
         .select(
-          "id, total_amount, note, created_at, sale_items(quantity, unit, products(id, name, unit_type, conversion_factor, purchase_unit_label, sale_unit_label))"
+          "id, total_amount, note, created_at, voided_at, sale_items(quantity, unit, products(id, name, unit_type, conversion_factor, purchase_unit_label, sale_unit_label))"
         )
         .eq("customer_id", id)
         .order("created_at", { ascending: false }),
@@ -153,7 +153,16 @@ export default async function EditarClientePage({
                     <TableCell className="text-muted-foreground">
                       {sale.note ?? "—"}
                     </TableCell>
-                    <TableCell>${formatMoney(sale.total_amount)}</TableCell>
+                    <TableCell>
+                      <span className={sale.voided_at ? "text-muted-foreground line-through" : undefined}>
+                        ${formatMoney(sale.total_amount)}
+                      </span>
+                      {sale.voided_at && (
+                        <Badge variant="destructive" className="ml-2">
+                          Anulada
+                        </Badge>
+                      )}
+                    </TableCell>
                   </ClickableTableRow>
                 ))}
               </TableBody>

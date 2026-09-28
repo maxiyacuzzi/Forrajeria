@@ -23,10 +23,27 @@ type Sale = {
   total_amount: number
   is_loyalty_reward: boolean
   payment_method: keyof typeof PAYMENT_METHOD_LABEL
+  awaiting_mp_payment: boolean
+  voided_at: string | null
   created_at: string
   customers: { name: string; dni: string | null } | null
 }
-type SortKey = "date" | "customer" | "payment" | "total"
+type SortKey = "date" | "customer" | "payment" | "status" | "total"
+
+const STATUS: Record<
+  "voided" | "pending" | "paid",
+  { label: string; variant: "destructive" | "secondary" | "outline" }
+> = {
+  voided: { label: "Anulada", variant: "destructive" },
+  pending: { label: "Pendiente de pago", variant: "secondary" },
+  paid: { label: "Pagada", variant: "outline" },
+}
+
+function saleStatus(sale: Sale) {
+  if (sale.voided_at) return STATUS.voided
+  if (sale.awaiting_mp_payment) return STATUS.pending
+  return STATUS.paid
+}
 
 export function SalesTable({ sales }: { sales: Sale[] }) {
   const [query, setQuery] = useState("")
@@ -48,6 +65,8 @@ export function SalesTable({ sales }: { sales: Sale[] }) {
         return sale.customers?.name ?? null
       case "payment":
         return PAYMENT_METHOD_LABEL[sale.payment_method]
+      case "status":
+        return saleStatus(sale).label
       case "total":
         return sale.total_amount
     }
@@ -101,6 +120,12 @@ export function SalesTable({ sales }: { sales: Sale[] }) {
                   onSort={handleSort}
                 />
                 <SortableTableHead
+                  label="Estado"
+                  sortKey="status"
+                  sort={sort}
+                  onSort={handleSort}
+                />
+                <SortableTableHead
                   label="Total"
                   sortKey="total"
                   sort={sort}
@@ -121,8 +146,15 @@ export function SalesTable({ sales }: { sales: Sale[] }) {
                     {PAYMENT_METHOD_LABEL[sale.payment_method]}
                   </TableCell>
                   <TableCell>
+                    <Badge variant={saleStatus(sale).variant}>{saleStatus(sale).label}</Badge>
+                  </TableCell>
+                  <TableCell>
                     <div className="flex items-center gap-2">
-                      ${formatMoney(sale.total_amount)}
+                      <span
+                        className={sale.voided_at ? "text-muted-foreground line-through" : undefined}
+                      >
+                        ${formatMoney(sale.total_amount)}
+                      </span>
                       {sale.is_loyalty_reward && <Badge>Fidelidad</Badge>}
                     </div>
                   </TableCell>

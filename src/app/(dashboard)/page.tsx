@@ -31,11 +31,20 @@ export default async function DashboardPage() {
     { data: products },
     { data: customers },
   ] = await Promise.all([
-    supabase.from("sales").select("total_amount").gte("created_at", startOfToday.toISOString()),
-    supabase.from("sales").select("total_amount").gte("created_at", startOfMonth.toISOString()),
+    supabase
+      .from("sales")
+      .select("total_amount")
+      .is("voided_at", null)
+      .gte("created_at", startOfToday.toISOString()),
+    supabase
+      .from("sales")
+      .select("total_amount")
+      .is("voided_at", null)
+      .gte("created_at", startOfMonth.toISOString()),
     supabase
       .from("sales")
       .select("id, total_amount, created_at, customers(name)")
+      .is("voided_at", null)
       .order("created_at", { ascending: false })
       .limit(5),
     supabase.from("products").select("*").eq("is_active", true),

@@ -36,6 +36,7 @@ export default async function ClientesInactivosPage({
     supabase
       .from("sales")
       .select("customer_id, created_at")
+      .is("voided_at", null)
       .order("created_at", { ascending: false }),
   ])
 
