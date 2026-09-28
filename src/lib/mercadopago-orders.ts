@@ -115,6 +115,19 @@ async function mpRequest<T>(
   return res.json() as Promise<T>
 }
 
+/**
+ * Mercado Pago's sandbox can't create orders with an OAuth token for a test
+ * user ("merchant_order_creation_error"); only that test seller's own test
+ * credentials can. Stage/local set MERCADOPAGO_TEST_ACCESS_TOKEN to them, and
+ * it's used only while the connected account is that same test seller (its
+ * user id ends the token), so a real account connected there still uses OAuth.
+ * Never set in production.
+ */
+function sandboxAccessToken(mpUserId: number) {
+  const token = process.env.MERCADOPAGO_TEST_ACCESS_TOKEN
+  return token && token.endsWith(`-${mpUserId}`) ? token : null
+}
+
 /** The org's connection with a usable access token, refreshing it if needed. */
 export async function getMercadoPagoConnection(orgId: string) {
   const service = createServiceRoleClient()
@@ -125,6 +138,9 @@ export async function getMercadoPagoConnection(orgId: string) {
     .maybeSingle()
 
   if (!connection) return null
+
+  const sandboxToken = sandboxAccessToken(connection.mp_user_id)
+  if (sandboxToken) return { ...connection, access_token: sandboxToken }
 
   if (new Date(connection.expires_at).getTime() - Date.now() > TOKEN_REFRESH_MARGIN_MS) {
     return connection
