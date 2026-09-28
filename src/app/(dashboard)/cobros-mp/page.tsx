@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import {
   getMercadoPagoConnection,
+  saleIdFromExternalReference,
   searchMercadoPagoPayments,
   type MercadoPagoReceivedPayment,
 } from "@/lib/mercadopago-orders"
@@ -24,7 +25,6 @@ import {
 const TIME_ZONE = "America/Argentina/Buenos_Aires"
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const DEFAULT_RANGE_DAYS = 7
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const PAYMENT_TYPE_LABEL: Record<string, string> = {
   account_money: "Dinero en cuenta",
@@ -118,12 +118,12 @@ export default async function CobrosMercadoPagoPage({
 
   const payments = result?.payments ?? []
 
-  // Our QR/Point orders use the sale id as external_reference.
+  // Our QR/Point orders' external_reference starts with the sale id.
   const saleIds = [
     ...new Set(
       payments
-        .map((p) => p.external_reference)
-        .filter((ref): ref is string => !!ref && UUID_PATTERN.test(ref))
+        .map((p) => saleIdFromExternalReference(p.external_reference))
+        .filter((id): id is string => id !== null)
     ),
   ]
   const { data: sales } = saleIds.length
@@ -224,10 +224,12 @@ export default async function CobrosMercadoPagoPage({
                       </TableRow>
                     ) : (
                       payments.map((payment) => {
+                        const referencedSaleId = saleIdFromExternalReference(
+                          payment.external_reference
+                        )
                         const saleId =
-                          payment.external_reference &&
-                          knownSaleIds.has(payment.external_reference)
-                            ? payment.external_reference
+                          referencedSaleId && knownSaleIds.has(referencedSaleId)
+                            ? referencedSaleId
                             : null
                         return (
                           <TableRow key={payment.id}>
