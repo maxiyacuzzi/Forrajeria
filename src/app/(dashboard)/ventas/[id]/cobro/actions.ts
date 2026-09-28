@@ -18,6 +18,7 @@ import {
 
 // Order statuses after which the order can no longer be paid.
 const CLOSED_STATUSES = ["processed", "expired", "canceled", "failed", "refunded"]
+const OPEN_STATUSES = ["created", "at_terminal", "action_required"]
 
 export type MpPaymentState = { status: string | null; error: string | null }
 
@@ -50,6 +51,59 @@ async function loadPendingSale(saleId: string) {
   return { sale, kind, payment }
 }
 
+/**
+ * Cancels an open order and records the outcome. If the cancel is refused
+ * (e.g. it was just paid, or the customer is paying right now), re-reads the
+ * order instead, so the result is always Mercado Pago's real status.
+ */
+async function closeOpenOrder(orgId: string, accessToken: string, mpOrderId: string) {
+  try {
+    const order = await cancelMercadoPagoOrder(accessToken, mpOrderId)
+    await createServiceRoleClient()
+      .from("mercadopago_payments")
+      .update({ status: order.status, updated_at: new Date().toISOString() })
+      .eq("mp_order_id", mpOrderId)
+    return order.status
+  } catch (err) {
+    console.error("closeOpenOrder", mpOrderId, err)
+    const order = await syncMercadoPagoPayment(orgId, mpOrderId).catch(() => null)
+    return order?.status ?? null
+  }
+}
+
+/**
+ * The QR (one per store) and the Point take one order at a time, and a newer
+ * order on the same QR coexists with the older one — canceling the older one
+ * afterwards can wipe the newer off the QR. So before charging a sale, open
+ * orders of *other* sales on the same channel are closed first.
+ * Returns an error when another sale is being paid at this very moment.
+ */
+async function closeOtherSalesOrders(
+  orgId: string,
+  accessToken: string,
+  kind: MercadoPagoPaymentKind,
+  saleId: string
+) {
+  const { data: others } = await createServiceRoleClient()
+    .from("mercadopago_payments")
+    .select("mp_order_id")
+    .eq("org_id", orgId)
+    .eq("kind", kind)
+    .neq("sale_id", saleId)
+    .in("status", OPEN_STATUSES)
+
+  for (const other of others ?? []) {
+    const status = await closeOpenOrder(orgId, accessToken, other.mp_order_id)
+    if (status === "at_terminal") {
+      return kind === "point"
+        ? "El posnet está cobrando otra venta en este momento. Esperá a que termine o cancelala."
+        : "Otro cliente está pagando con el QR en este momento. Esperá a que termine."
+    }
+  }
+  revalidatePath("/ventas")
+  return null
+}
+
 /** Sends the sale's total to the store's QR or Point (a new order, if none is open). */
 export async function startMpPayment(saleId: string): Promise<MpPaymentState> {
   const loaded = await loadPendingSale(saleId)
@@ -70,6 +124,9 @@ export async function startMpPayment(saleId: string): Promise<MpPaymentState> {
         error: kind === "qr" ? "El cobro con QR no está configurado." : "No hay un posnet Point configurado.",
       }
     }
+
+    const busy = await closeOtherSalesOrders(sale.org_id, connection.access_token, kind, sale.id)
+    if (busy) return { status: null, error: busy }
 
     const orderInput = {
       amount: sale.total_amount,
@@ -132,6 +189,36 @@ export async function refreshMpPaymentStatus(saleId: string): Promise<MpPaymentS
   }
 }
 
+/** Cancels the sale's open charge; the sale stays pending, to retry or settle otherwise. */
+export async function cancelMpPayment(saleId: string): Promise<MpPaymentState> {
+  const loaded = await loadPendingSale(saleId)
+  if (!loaded) return { status: null, error: "Venta no encontrada" }
+  const { sale, kind, payment } = loaded
+
+  if (!payment || CLOSED_STATUSES.includes(payment.status)) {
+    return { status: payment?.status ?? null, error: null }
+  }
+
+  const connection = await getMercadoPagoConnection(sale.org_id)
+  if (!connection) return { status: payment.status, error: "Mercado Pago no está conectado." }
+
+  const status = await closeOpenOrder(sale.org_id, connection.access_token, payment.mp_order_id)
+  if (status === "processed") {
+    revalidatePath("/ventas")
+    return { status, error: null }
+  }
+  if (status === null || OPEN_STATUSES.includes(status)) {
+    return {
+      status: status ?? payment.status,
+      error:
+        kind === "point"
+          ? "No se pudo cancelar: el cliente puede estar pagando en el posnet. Cancelalo desde el posnet."
+          : "No se pudo cancelar el cobro. Probá de nuevo.",
+    }
+  }
+  return { status, error: null }
+}
+
 /**
  * The sale is settled another way: close the open order, then switch the
  * method. "posnet_mp" means it was charged by hand on the posnet.
@@ -145,22 +232,17 @@ export async function settleMpSaleOtherwise(
   const { sale, payment } = loaded
 
   if (payment && !CLOSED_STATUSES.includes(payment.status)) {
-    try {
-      const connection = await getMercadoPagoConnection(sale.org_id)
-      if (connection) {
-        const order = await cancelMercadoPagoOrder(connection.access_token, payment.mp_order_id)
-        await createServiceRoleClient()
-          .from("mercadopago_payments")
-          .update({ status: order.status, updated_at: new Date().toISOString() })
-          .eq("mp_order_id", payment.mp_order_id)
+    const connection = await getMercadoPagoConnection(sale.org_id)
+    if (connection) {
+      // It may have just been paid: then it stays paid instead of switching.
+      const status = await closeOpenOrder(sale.org_id, connection.access_token, payment.mp_order_id)
+      if (status === "processed") return { status: "processed", error: null }
+      if (status === "at_terminal") {
+        return {
+          status,
+          error: "El cliente está pagando en este momento. Esperá a que termine antes de cambiar el medio de pago.",
+        }
       }
-    } catch (err) {
-      // It may have just been paid: re-check before switching the method.
-      console.error("settleMpSaleOtherwise cancel", err)
-      const order = await syncMercadoPagoPayment(sale.org_id, payment.mp_order_id).catch(
-        () => null
-      )
-      if (order?.status === "processed") return { status: "processed", error: null }
     }
   }
 
