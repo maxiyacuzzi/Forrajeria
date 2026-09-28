@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceRoleClient } from "@/lib/supabase/service-role"
 import {
-  cancelMercadoPagoOrder,
+  closeOpenMercadoPagoOrder as closeOpenOrder,
   createMercadoPagoPointOrder,
   createMercadoPagoQrOrder,
   getMercadoPagoConnection,
@@ -49,26 +49,6 @@ async function loadPendingSale(saleId: string) {
     .maybeSingle()
 
   return { sale, kind, payment }
-}
-
-/**
- * Cancels an open order and records the outcome. If the cancel is refused
- * (e.g. it was just paid, or the customer is paying right now), re-reads the
- * order instead, so the result is always Mercado Pago's real status.
- */
-async function closeOpenOrder(orgId: string, accessToken: string, mpOrderId: string) {
-  try {
-    const order = await cancelMercadoPagoOrder(accessToken, mpOrderId)
-    await createServiceRoleClient()
-      .from("mercadopago_payments")
-      .update({ status: order.status, updated_at: new Date().toISOString() })
-      .eq("mp_order_id", mpOrderId)
-    return order.status
-  } catch (err) {
-    console.error("closeOpenOrder", mpOrderId, err)
-    const order = await syncMercadoPagoPayment(orgId, mpOrderId).catch(() => null)
-    return order?.status ?? null
-  }
 }
 
 /**

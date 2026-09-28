@@ -6,6 +6,11 @@ import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceRoleClient } from "@/lib/supabase/service-role"
 import { saleSchema, type SaleFormValues } from "@/lib/validations/sale"
+import {
+  closeOpenMercadoPagoOrder,
+  getMercadoPagoConnection,
+  syncMercadoPagoPayment,
+} from "@/lib/mercadopago-orders"
 import { startMpPayment } from "./[id]/cobro/actions"
 
 export type SaleActionState = { error: string | null }
@@ -79,4 +84,60 @@ export async function getCustomerLoyalty(
     .eq("customer_id", customerId)
 
   return data ?? []
+}
+
+/**
+ * Voids a sale (owner only; void_sale enforces the rules). Mercado Pago comes
+ * first: an open charge is canceled, and paid charges are re-read so one
+ * refunded by hand in Mercado Pago is seen as refunded.
+ */
+export async function voidSale(saleId: string, reason: string): Promise<SaleActionState> {
+  const supabase = await createClient()
+  const { data: sale } = await supabase
+    .from("sales")
+    .select("id, org_id, voided_at")
+    .eq("id", saleId)
+    .single()
+  if (!sale) return { error: "Venta no encontrada" }
+  if (sale.voided_at) return { error: "La venta ya está anulada" }
+
+  const { data: payments } = await supabase
+    .from("mercadopago_payments")
+    .select("mp_order_id, status")
+    .eq("sale_id", saleId)
+    .in("status", ["created", "at_terminal", "action_required", "processed"])
+
+  if (payments?.length) {
+    const connection = await getMercadoPagoConnection(sale.org_id).catch(() => null)
+    if (!connection) return { error: "No se pudo consultar Mercado Pago. Probá de nuevo." }
+
+    for (const payment of payments) {
+      const status =
+        payment.status === "processed"
+          ? (await syncMercadoPagoPayment(sale.org_id, payment.mp_order_id).catch(() => null))
+              ?.status
+          : await closeOpenMercadoPagoOrder(sale.org_id, connection.access_token, payment.mp_order_id)
+
+      if (status === "processed") {
+        return {
+          error:
+            "La venta se cobró con Mercado Pago: primero devolvé el pago desde Mercado Pago y después anulala.",
+        }
+      }
+      if (status === "at_terminal") {
+        return { error: "El cliente está pagando en este momento. Esperá a que termine." }
+      }
+    }
+  }
+
+  const { error } = await supabase.rpc("void_sale", {
+    p_sale_id: saleId,
+    p_reason: reason.trim() || undefined,
+  })
+  if (error) return { error: error.message }
+
+  for (const path of ["/ventas", `/ventas/${saleId}`, "/stock", "/caja", "/clientes", "/reportes", "/"]) {
+    revalidatePath(path)
+  }
+  return { error: null }
 }

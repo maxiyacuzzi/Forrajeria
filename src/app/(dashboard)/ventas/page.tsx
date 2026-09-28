@@ -10,7 +10,7 @@ export default async function VentasPage() {
   const { data: sales } = await supabase
     .from("sales")
     .select(
-      "id, total_amount, is_loyalty_reward, payment_method, created_at, customers(name, dni)"
+      "id, total_amount, is_loyalty_reward, payment_method, awaiting_mp_payment, voided_at, created_at, customers(name, dni)"
     )
     .order("created_at", { ascending: false })
     .limit(100)

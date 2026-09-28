@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { PAYMENT_METHOD_LABEL } from "@/lib/validations/expense"
 import { formatMoney } from "@/lib/pricing"
 import { formatPurchaseLabel } from "@/lib/stock-format"
+import { VoidSaleDialog } from "./void-sale-dialog"
 import {
   Table,
   TableBody,
@@ -35,6 +36,14 @@ export default async function VentaDetallePage({
     notFound()
   }
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  const { data: profile } = user
+    ? await supabase.from("profiles").select("role").eq("id", user.id).single()
+    : { data: null }
+  const canVoid = profile?.role === "owner" && !sale.voided_at
+
 
   return (
     <div className="grid gap-6">
@@ -44,7 +53,19 @@ export default async function VentaDetallePage({
             Venta del {new Date(sale.created_at).toLocaleDateString("es-AR")}
           </h1>
           {sale.is_loyalty_reward && <Badge>Fidelidad</Badge>}
+          {sale.voided_at && <Badge variant="destructive">Anulada</Badge>}
+          {canVoid && (
+            <div className="ml-auto">
+              <VoidSaleDialog saleId={sale.id} />
+            </div>
+          )}
         </div>
+        {sale.voided_at && (
+          <p className="text-sm text-destructive">
+            Anulada el {new Date(sale.voided_at).toLocaleString("es-AR")}
+            {sale.void_reason && ` — ${sale.void_reason}`}
+          </p>
+        )}
         <p className="text-sm text-muted-foreground">
           Cliente:{" "}
           <Link href={`/clientes/${sale.customers?.id}`} className="hover:underline">

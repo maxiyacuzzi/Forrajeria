@@ -759,6 +759,9 @@ export type Database = {
           subtotal_amount: number
           surcharge_amount: number
           total_amount: number
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
         }
         Insert: {
           awaiting_mp_payment?: boolean
@@ -775,6 +778,9 @@ export type Database = {
           subtotal_amount?: number
           surcharge_amount?: number
           total_amount?: number
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Update: {
           awaiting_mp_payment?: boolean
@@ -791,6 +797,9 @@ export type Database = {
           subtotal_amount?: number
           surcharge_amount?: number
           total_amount?: number
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Relationships: [
           {
@@ -1047,6 +1056,28 @@ export type Database = {
             }
           }
       disconnect_mercadopago: { Args: never; Returns: undefined }
+      void_sale: {
+        Args: { p_reason?: string; p_sale_id: string }
+        Returns: {
+          awaiting_mp_payment: boolean
+          cash_register_id: string | null
+          created_at: string
+          created_by: string | null
+          customer_id: string
+          discount_amount: number
+          id: string
+          is_loyalty_reward: boolean
+          note: string | null
+          org_id: string
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          subtotal_amount: number
+          surcharge_amount: number
+          total_amount: number
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+      }
       settle_mp_sale_otherwise: {
         Args: {
           p_payment_method: Database["public"]["Enums"]["payment_method"]
@@ -1133,6 +1164,7 @@ export type Database = {
         | "mezcla_producto"
         | "ajuste_manual"
         | "rotura_humedad"
+        | "anulacion_venta"
       user_role: "owner" | "vendedor" | "deposito"
     }
     CompositeTypes: {
@@ -1281,6 +1313,7 @@ export const Constants = {
         "mezcla_producto",
         "ajuste_manual",
         "rotura_humedad",
+        "anulacion_venta",
       ],
       user_role: ["owner", "vendedor", "deposito"],
     },

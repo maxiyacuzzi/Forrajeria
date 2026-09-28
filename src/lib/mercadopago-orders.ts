@@ -375,6 +375,30 @@ export async function syncMercadoPagoPayment(orgId: string, mpOrderId: string) {
 }
 
 /**
+ * Cancels an open order and records the outcome. If the cancel is refused
+ * (e.g. it was just paid, or the customer is paying right now), re-reads the
+ * order instead, so the result is always Mercado Pago's real status.
+ */
+export async function closeOpenMercadoPagoOrder(
+  orgId: string,
+  accessToken: string,
+  mpOrderId: string
+) {
+  try {
+    const order = await cancelMercadoPagoOrder(accessToken, mpOrderId)
+    await createServiceRoleClient()
+      .from("mercadopago_payments")
+      .update({ status: order.status, updated_at: new Date().toISOString() })
+      .eq("mp_order_id", mpOrderId)
+    return order.status
+  } catch (err) {
+    console.error("closeOpenOrder", mpOrderId, err)
+    const order = await syncMercadoPagoPayment(orgId, mpOrderId).catch(() => null)
+    return order?.status ?? null
+  }
+}
+
+/**
  * Validates the x-signature header of a webhook notification: an HMAC-SHA256
  * over "id:<data.id>;request-id:<x-request-id>;ts:<ts>;" keyed with the
  * application's webhook secret. Missing parts are left out of the manifest.

@@ -39,7 +39,8 @@ export default async function CajaPage() {
         .from("sales")
         .select("total_amount")
         .eq("cash_register_id", openRegister.id)
-        .eq("payment_method", "efectivo"),
+        .eq("payment_method", "efectivo")
+        .is("voided_at", null),
       supabase
         .from("expense_payments")
         .select("amount")

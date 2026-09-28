@@ -45,6 +45,7 @@ export default async function ReportesPage({
     supabase
       .from("sales")
       .select("id, customer_id, total_amount, created_at, customers(name, dni)")
+      .is("voided_at", null)
       .gte("created_at", range.from.toISOString())
       .lte("created_at", range.to.toISOString())
       .order("created_at"),
