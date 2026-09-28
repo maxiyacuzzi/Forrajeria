@@ -14,6 +14,7 @@ import type { SaleFormValues } from "@/lib/validations/sale"
 import {
   PAYMENT_METHODS,
   PAYMENT_METHOD_LABEL,
+  SALE_PAYMENT_METHODS,
 } from "@/lib/validations/expense"
 import { simulateLoyaltyDiscounts } from "@/lib/loyalty"
 import {
@@ -78,11 +79,14 @@ export function QuickSaleScreen({
   customers,
   products,
   categories,
+  qrEnabled,
 }: {
   customers: Customer[]
   products: Product[]
   categories: Category[]
+  qrEnabled: boolean
 }) {
+  const paymentMethods = qrEnabled ? SALE_PAYMENT_METHODS : PAYMENT_METHODS
   const [search, setSearch] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [cart, setCart] = useState<CartLine[]>([])
@@ -539,7 +543,7 @@ export function QuickSaleScreen({
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          {PAYMENT_METHODS.map((method) => (
+          {paymentMethods.map((method) => (
             <Button
               key={method}
               type="button"

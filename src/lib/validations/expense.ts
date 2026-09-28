@@ -2,11 +2,15 @@ import { z } from "zod"
 
 export const PAYMENT_METHODS = ["efectivo", "transferencia", "tarjeta", "posnet_mp"] as const
 
-export const PAYMENT_METHOD_LABEL: Record<(typeof PAYMENT_METHODS)[number], string> = {
+// Sales can also be charged with the store's Mercado Pago QR; expenses can't.
+export const SALE_PAYMENT_METHODS = [...PAYMENT_METHODS, "qr_mp"] as const
+
+export const PAYMENT_METHOD_LABEL: Record<(typeof SALE_PAYMENT_METHODS)[number], string> = {
   efectivo: "Efectivo",
   transferencia: "Transferencia",
   tarjeta: "Tarjeta",
   posnet_mp: "Posnet Mercado Pago",
+  qr_mp: "QR Mercado Pago",
 }
 
 export const expenseSchema = z

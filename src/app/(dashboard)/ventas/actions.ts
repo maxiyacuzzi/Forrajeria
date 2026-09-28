@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache"
 
 import { createClient } from "@/lib/supabase/server"
 import { saleSchema, type SaleFormValues } from "@/lib/validations/sale"
+import { startQrPayment } from "./[id]/cobro-qr/actions"
 
 export type SaleActionState = { error: string | null }
 
@@ -15,6 +16,15 @@ export async function createSale(values: SaleFormValues): Promise<SaleActionStat
   }
 
   const supabase = await createClient()
+  const isQr = parsed.data.payment_method === "qr_mp"
+
+  if (isQr) {
+    const { data: status } = await supabase.rpc("mercadopago_connection_status").single()
+    if (!status?.qr_ready) {
+      return { error: "El cobro con QR no está configurado (Configuración > Mercado Pago)" }
+    }
+  }
+
   const { data: sale, error } = await supabase.rpc("create_sale", {
     p_customer_id: parsed.data.customer_id,
     p_items: parsed.data.items,
@@ -29,6 +39,12 @@ export async function createSale(values: SaleFormValues): Promise<SaleActionStat
   revalidatePath("/ventas")
   revalidatePath("/stock")
   revalidatePath("/clientes")
+
+  if (isQr) {
+    // The payment screen shows any error and lets the cashier retry.
+    await startQrPayment(sale.id)
+    redirect(`/ventas/${sale.id}/cobro-qr`)
+  }
   redirect(`/ventas/${sale.id}`)
 }
 
