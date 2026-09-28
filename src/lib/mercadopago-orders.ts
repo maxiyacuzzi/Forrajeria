@@ -55,12 +55,14 @@ function errorReason(body: string) {
       message?: string
       error?: string
       cause?: { description?: string; message?: string }[]
+      causes?: { description?: string; message?: string }[]
       errors?: { message?: string; details?: string[] }[]
     }
     const detail =
-      data.cause?.map((c) => c.description ?? c.message).filter(Boolean).join("; ") ||
+      (data.causes ?? data.cause)?.map((c) => c.description ?? c.message).filter(Boolean).join("; ") ||
       data.errors?.map((e) => [e.message, ...(e.details ?? [])].join(": ")).join("; ")
-    return [data.message ?? data.error, detail].filter(Boolean).join(" — ") || body.slice(0, 300)
+    // causes usually repeat the message with more detail (e.g. the valid values).
+    return detail || data.message || data.error || body.slice(0, 300)
   } catch {
     return body.slice(0, 300)
   }

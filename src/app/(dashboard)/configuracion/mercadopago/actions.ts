@@ -6,6 +6,7 @@ import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceRoleClient } from "@/lib/supabase/service-role"
 import { geocodeAddress, reverseGeocode, type GeocodedAddress } from "@/lib/geocoding"
+import { toMercadoPagoProvince } from "@/lib/argentina-provinces"
 import {
   createMercadoPagoPos,
   createMercadoPagoStore,
@@ -96,7 +97,11 @@ export async function setupMercadoPagoQr(
       const { store_name, reference, ...location } = parsed.data
       storeId = await createMercadoPagoStore(connection.access_token, connection.mp_user_id, {
         name: store_name,
-        location: { ...location, reference: reference || undefined },
+        location: {
+          ...location,
+          state_name: toMercadoPagoProvince(location.state_name),
+          reference: reference || undefined,
+        },
       })
       const { error } = await service
         .from("mercadopago_connections")
