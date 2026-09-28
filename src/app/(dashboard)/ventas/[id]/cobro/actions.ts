@@ -10,6 +10,7 @@ import {
   createMercadoPagoPointOrder,
   createMercadoPagoQrOrder,
   getMercadoPagoConnection,
+  MercadoPagoApiError,
   syncMercadoPagoPayment,
   type MercadoPagoPaymentKind,
 } from "@/lib/mercadopago-orders"
@@ -98,13 +99,14 @@ export async function startMpPayment(saleId: string): Promise<MpPaymentState> {
 
     return { status: order.status, error: null }
   } catch (err) {
-    console.error("startMpPayment", err)
+    console.error("startMpPayment", kind, err)
+    const reason = err instanceof MercadoPagoApiError ? ` Motivo: ${err.reason}` : ""
     return {
       status: null,
       error:
-        kind === "point"
+        (kind === "point"
           ? "No se pudo enviar el cobro al posnet. Revisá que esté prendido y en modo integrado."
-          : "No se pudo generar el cobro en Mercado Pago.",
+          : "No se pudo generar el cobro en Mercado Pago.") + reason,
     }
   }
 }
