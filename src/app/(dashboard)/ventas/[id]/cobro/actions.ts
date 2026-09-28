@@ -11,6 +11,7 @@ import {
   createMercadoPagoQrOrder,
   getMercadoPagoConnection,
   MercadoPagoApiError,
+  orderExternalReference,
   syncMercadoPagoPayment,
   type MercadoPagoPaymentKind,
 } from "@/lib/mercadopago-orders"
@@ -72,7 +73,7 @@ export async function startMpPayment(saleId: string): Promise<MpPaymentState> {
 
     const orderInput = {
       amount: sale.total_amount,
-      externalReference: sale.id,
+      externalReference: orderExternalReference(sale.id),
       description: "Venta Forrajeria",
     }
     const order =

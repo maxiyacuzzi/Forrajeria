@@ -31,6 +31,22 @@ export type MercadoPagoTerminal = {
   pos_id: number | null
 }
 
+/**
+ * Mercado Pago requires a unique external_reference per order, and a sale can
+ * need several (retries after an expired or failed one): "<sale id>_<suffix>".
+ */
+export function orderExternalReference(saleId: string) {
+  return `${saleId}_${Date.now().toString(36)}`
+}
+
+/** The sale id an order's (or its payment's) external_reference points to. */
+export function saleIdFromExternalReference(reference: string | null) {
+  const match = reference?.match(
+    /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:_|$)/i
+  )
+  return match ? match[1].toLowerCase() : null
+}
+
 export type MercadoPagoOrder = {
   id: string
   status: string
@@ -43,9 +59,11 @@ export class MercadoPagoApiError extends Error {
   constructor(
     readonly status: number,
     readonly path: string,
-    readonly reason: string
+    readonly reason: string,
+    body: string
   ) {
-    super(`Mercado Pago respondió ${status} en ${path}: ${reason}`)
+    // The full body goes to the server log: it has codes the reason may omit.
+    super(`Mercado Pago respondió ${status} en ${path}: ${reason} | ${body.slice(0, 1000)}`)
   }
 }
 
@@ -91,7 +109,7 @@ async function mpRequest<T>(
 
   if (!res.ok) {
     const body = await res.text().catch(() => "")
-    throw new MercadoPagoApiError(res.status, path.split("?")[0], errorReason(body))
+    throw new MercadoPagoApiError(res.status, path.split("?")[0], errorReason(body), body)
   }
 
   return res.json() as Promise<T>
