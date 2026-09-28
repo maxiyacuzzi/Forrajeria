@@ -1,6 +1,6 @@
 import { z } from "zod"
 
-import { PAYMENT_METHODS } from "@/lib/validations/expense"
+import { SALE_PAYMENT_METHODS } from "@/lib/validations/expense"
 
 export const saleItemSchema = z.object({
   product_id: z.string().uuid("Elegí un producto"),
@@ -13,7 +13,7 @@ export const saleSchema = z.object({
   customer_id: z.string().uuid("Elegí un cliente"),
   items: z.array(saleItemSchema).min(1, "Agregá al menos un producto"),
   note: z.string().trim().optional(),
-  payment_method: z.enum(PAYMENT_METHODS),
+  payment_method: z.enum(SALE_PAYMENT_METHODS),
 })
 
 export type SaleItemValues = z.infer<typeof saleItemSchema>

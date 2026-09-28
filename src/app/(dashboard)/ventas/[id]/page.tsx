@@ -35,6 +35,18 @@ export default async function VentaDetallePage({
     notFound()
   }
 
+  const { data: qrPayment } =
+    sale.payment_method === "qr_mp"
+      ? await supabase
+          .from("mercadopago_payments")
+          .select("status")
+          .eq("sale_id", id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : { data: null }
+  const qrPaid = qrPayment?.status === "processed"
+
   return (
     <div className="grid gap-6">
       <div>
@@ -53,6 +65,18 @@ export default async function VentaDetallePage({
         </p>
         <p className="text-sm text-muted-foreground">
           Pago: {PAYMENT_METHOD_LABEL[sale.payment_method]}
+          {sale.payment_method === "qr_mp" &&
+            (qrPaid ? (
+              " (pagado)"
+            ) : (
+              <>
+                {" "}
+                <Badge variant="destructive">Pendiente de pago</Badge>{" "}
+                <Link href={`/ventas/${sale.id}/cobro-qr`} className="underline">
+                  Cobrar
+                </Link>
+              </>
+            ))}
         </p>
         {sale.note && (
           <p className="text-sm text-muted-foreground">Nota: {sale.note}</p>

@@ -7,7 +7,8 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
+  // The Mercado Pago webhook is called without a session; it checks its own signature.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|manifest.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|manifest.json|api/mercadopago/webhook|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 }

@@ -24,6 +24,7 @@ import { formatPurchaseLabel, isWeightUnit } from "@/lib/stock-format"
 import {
   PAYMENT_METHODS,
   PAYMENT_METHOD_LABEL,
+  SALE_PAYMENT_METHODS,
 } from "@/lib/validations/expense"
 import type { Database } from "@/lib/types/database.types"
 import { Badge } from "@/components/ui/badge"
@@ -80,10 +81,13 @@ function isHalfBagItem(
 export function SaleForm({
   customers,
   products,
+  qrEnabled,
 }: {
   customers: Customer[]
   products: Product[]
+  qrEnabled: boolean
 }) {
+  const paymentMethods = qrEnabled ? SALE_PAYMENT_METHODS : PAYMENT_METHODS
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
@@ -485,7 +489,7 @@ export function SaleForm({
               <Select
                 value={field.value}
                 onValueChange={field.onChange}
-                items={PAYMENT_METHODS.map((method) => ({
+                items={paymentMethods.map((method) => ({
                   value: method,
                   label: PAYMENT_METHOD_LABEL[method],
                 }))}
@@ -496,7 +500,7 @@ export function SaleForm({
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {PAYMENT_METHODS.map((method) => (
+                  {paymentMethods.map((method) => (
                     <SelectItem key={method} value={method}>
                       {PAYMENT_METHOD_LABEL[method]}
                     </SelectItem>

@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -329,6 +334,129 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mercadopago_connections: {
+        Row: {
+          access_token: string
+          connected_at: string
+          connected_by: string | null
+          email: string | null
+          expires_at: string
+          external_pos_id: string | null
+          live_mode: boolean
+          mp_user_id: number
+          nickname: string | null
+          org_id: string
+          public_key: string | null
+          qr_image_url: string | null
+          qr_template_url: string | null
+          refresh_token: string
+          scope: string | null
+          store_id: string | null
+        }
+        Insert: {
+          access_token: string
+          connected_at?: string
+          connected_by?: string | null
+          email?: string | null
+          expires_at: string
+          external_pos_id?: string | null
+          live_mode?: boolean
+          mp_user_id: number
+          nickname?: string | null
+          org_id: string
+          public_key?: string | null
+          qr_image_url?: string | null
+          qr_template_url?: string | null
+          refresh_token: string
+          scope?: string | null
+          store_id?: string | null
+        }
+        Update: {
+          access_token?: string
+          connected_at?: string
+          connected_by?: string | null
+          email?: string | null
+          expires_at?: string
+          external_pos_id?: string | null
+          live_mode?: boolean
+          mp_user_id?: number
+          nickname?: string | null
+          org_id?: string
+          public_key?: string | null
+          qr_image_url?: string | null
+          qr_template_url?: string | null
+          refresh_token?: string
+          scope?: string | null
+          store_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mercadopago_connections_connected_by_fkey"
+            columns: ["connected_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mercadopago_connections_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mercadopago_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          mp_order_id: string
+          org_id: string
+          sale_id: string
+          status: string
+          status_detail: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          mp_order_id: string
+          org_id: string
+          sale_id: string
+          status?: string
+          status_detail?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          mp_order_id?: string
+          org_id?: string
+          sale_id?: string
+          status?: string
+          status_detail?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mercadopago_payments_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mercadopago_payments_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
             referencedColumns: ["id"]
           },
         ]
@@ -909,6 +1037,26 @@ export type Database = {
               isSetofReturn: false
             }
           }
+      change_qr_sale_payment_method: {
+        Args: {
+          p_payment_method: Database["public"]["Enums"]["payment_method"]
+          p_sale_id: string
+        }
+        Returns: undefined
+      }
+      disconnect_mercadopago: { Args: never; Returns: undefined }
+      mercadopago_connection_status: {
+        Args: never
+        Returns: {
+          connected: boolean
+          connected_at: string
+          live_mode: boolean
+          nickname: string
+          qr_image_url: string
+          qr_ready: boolean
+          qr_template_url: string
+        }[]
+      }
       open_cash_register: {
         Args: { p_note?: string; p_opening_amount: number }
         Returns: {
@@ -959,7 +1107,12 @@ export type Database = {
       }
     }
     Enums: {
-      payment_method: "efectivo" | "transferencia" | "tarjeta" | "posnet_mp"
+      payment_method:
+        | "efectivo"
+        | "transferencia"
+        | "tarjeta"
+        | "posnet_mp"
+        | "qr_mp"
       product_unit_type: "simple" | "fraccionable" | "no_fraccionable"
       stock_movement_type:
         | "ingreso_compra"
@@ -986,12 +1139,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1015,11 +1168,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1040,11 +1193,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1065,11 +1218,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1082,11 +1235,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1101,7 +1254,13 @@ export const Constants = {
   },
   public: {
     Enums: {
-      payment_method: ["efectivo", "transferencia", "tarjeta", "posnet_mp"],
+      payment_method: [
+        "efectivo",
+        "transferencia",
+        "tarjeta",
+        "posnet_mp",
+        "qr_mp",
+      ],
       product_unit_type: ["simple", "fraccionable", "no_fraccionable"],
       stock_movement_type: [
         "ingreso_compra",
@@ -1117,4 +1276,3 @@ export const Constants = {
     },
   },
 } as const
-
