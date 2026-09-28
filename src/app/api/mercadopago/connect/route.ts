@@ -26,6 +26,15 @@ export async function GET(request: NextRequest) {
     )
   }
 
+  const missingEnv = ["MERCADOPAGO_CLIENT_ID", "MERCADOPAGO_CLIENT_SECRET", "MERCADOPAGO_REDIRECT_URI"]
+    .filter((name) => !process.env[name])
+  if (missingEnv.length > 0) {
+    console.error(`Mercado Pago OAuth: faltan variables de entorno: ${missingEnv.join(", ")}`)
+    return NextResponse.redirect(
+      new URL("/configuracion/mercadopago?error=not_configured", request.nextUrl.origin)
+    )
+  }
+
   const state = crypto.randomUUID()
   const cookieStore = await cookies()
   cookieStore.set(OAUTH_STATE_COOKIE, state, {
