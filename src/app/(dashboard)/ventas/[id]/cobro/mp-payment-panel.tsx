@@ -58,6 +58,7 @@ export function MpPaymentPanel({
 }) {
   const router = useRouter()
   const [status, setStatus] = useState(initialStatus)
+  const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
   useEffect(() => {
@@ -78,10 +79,17 @@ export function MpPaymentPanel({
   function retry() {
     startTransition(async () => {
       const result = await startMpPayment(saleId)
-      if (result.error) toast.error(result.error)
-      else setStatus(result.status)
+      setError(result.error)
+      if (!result.error) setStatus(result.status)
     })
   }
+
+  // No order yet (creating it right after the sale failed): try once more on
+  // arrival, so the reason shows up without the cashier having to ask.
+  useEffect(() => {
+    if (initialStatus === null) retry()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only on mount
+  }, [])
 
   function settle(method: FallbackMethod) {
     startTransition(async () => {
@@ -107,6 +115,8 @@ export function MpPaymentPanel({
           ? (STATUS_MESSAGE[kind][status] ?? `Estado: ${status}`)
           : "Todavía no se generó el cobro en Mercado Pago."}
       </p>
+
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
       {!isOpen(status) && (
         <Button size="lg" disabled={pending} onClick={retry}>

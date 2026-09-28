@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { MERCADO_PAGO_PROVINCES, toMercadoPagoProvince } from "@/lib/argentina-provinces"
 import type { GeocodedAddress } from "@/lib/geocoding"
 import {
   lookupAddressFromCoordinates,
@@ -68,7 +69,9 @@ export function QrSetupForm() {
       street_name: address.street_name || current.street_name,
       street_number: address.street_number || current.street_number,
       city_name: address.city_name || current.city_name,
-      state_name: address.state_name || current.state_name,
+      state_name: address.state_name
+        ? toMercadoPagoProvince(address.state_name)
+        : current.state_name,
       latitude: address.latitude.toFixed(6),
       longitude: address.longitude.toFixed(6),
     }))
@@ -154,6 +157,7 @@ export function QrSetupForm() {
               placeholder={field.placeholder}
               inputMode={field.inputMode}
               required={!field.optional}
+              list={field.name === "state_name" ? "mp-provinces" : undefined}
               value={values[field.name]}
               onChange={(e) =>
                 setValues((current) => ({ ...current, [field.name]: e.target.value }))
@@ -162,6 +166,11 @@ export function QrSetupForm() {
           </div>
         ))}
       </div>
+      <datalist id="mp-provinces">
+        {MERCADO_PAGO_PROVINCES.map((province) => (
+          <option key={province} value={province} />
+        ))}
+      </datalist>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
       <Button type="submit" disabled={pending || locating} className="w-fit">
         {pending ? "Creando..." : "Crear sucursal y QR"}
