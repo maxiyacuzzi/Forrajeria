@@ -220,6 +220,58 @@ export function cancelMercadoPagoOrder(accessToken: string, orderId: string) {
   })
 }
 
+export type MercadoPagoReceivedPayment = {
+  id: number
+  date_created: string
+  date_approved: string | null
+  money_release_date: string | null
+  status: string
+  status_detail: string | null
+  payment_type_id: string
+  payment_method_id: string
+  description: string | null
+  external_reference: string | null
+  transaction_amount: number
+  transaction_amount_refunded: number
+  fee_details: { type: string; amount: number }[]
+  transaction_details: { net_received_amount: number } | null
+}
+
+// Payments search pages; more than this in one range is summarized as partial.
+const PAYMENTS_PAGE_SIZE = 100
+const PAYMENTS_MAX_PAGES = 5
+
+/** Payments received by the account between two instants, newest first. */
+export async function searchMercadoPagoPayments(
+  accessToken: string,
+  { beginDate, endDate }: { beginDate: string; endDate: string }
+) {
+  const payments: MercadoPagoReceivedPayment[] = []
+  let total = 0
+
+  for (let page = 0; page < PAYMENTS_MAX_PAGES; page++) {
+    const params = new URLSearchParams({
+      sort: "date_created",
+      criteria: "desc",
+      range: "date_created",
+      begin_date: beginDate,
+      end_date: endDate,
+      limit: String(PAYMENTS_PAGE_SIZE),
+      offset: String(page * PAYMENTS_PAGE_SIZE),
+    })
+    const res = await mpRequest<{
+      results: MercadoPagoReceivedPayment[]
+      paging: { total: number }
+    }>(`/v1/payments/search?${params}`, accessToken)
+
+    payments.push(...res.results)
+    total = res.paging.total
+    if (payments.length >= total || res.results.length < PAYMENTS_PAGE_SIZE) break
+  }
+
+  return { payments, total, partial: payments.length < total }
+}
+
 /** Syncs a stored payment row with the order's current status in Mercado Pago. */
 export async function syncMercadoPagoPayment(orgId: string, mpOrderId: string) {
   const connection = await getMercadoPagoConnection(orgId)
