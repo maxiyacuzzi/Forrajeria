@@ -7,15 +7,15 @@
 -- before calling void_sale.
 
 alter table public.sales
-  add column voided_at timestamptz,
-  add column voided_by uuid references public.profiles (id),
-  add column void_reason text;
+  add column if not exists voided_at timestamptz,
+  add column if not exists voided_by uuid references public.profiles (id),
+  add column if not exists void_reason text;
 
 -- Replays a customer's purchase history of one product (non-voided sales
 -- only) with the same rules create_sale applies: a purchase after a gap
 -- longer than the window (21 days after a loose purchase, 40 after a bag)
 -- restarts progress; reaching 10 earns the reward and restarts it.
-create function public.recompute_customer_product_loyalty(
+create or replace function public.recompute_customer_product_loyalty(
   p_customer_id uuid, p_product_id uuid
 )
 returns void
@@ -28,6 +28,7 @@ declare
   v_progress numeric := 0;
   v_last_at timestamptz;
   v_last_unit text;
+  v_window interval;
 begin
   for v_purchase in
     select s.created_at, si.unit
@@ -38,10 +39,9 @@ begin
       and s.voided_at is null
     order by s.created_at, si.id
   loop
-    if v_last_at is not null and v_purchase.created_at - v_last_at > case
-      when v_last_unit = 'sale' then interval '21 days'
-      else interval '40 days'
-    end then
+    -- Computed apart: inside an IF condition, a CASE's THEN would end it.
+    v_window := case when v_last_unit = 'sale' then interval '21 days' else interval '40 days' end;
+    if v_last_at is not null and v_purchase.created_at - v_last_at > v_window then
       v_progress := 0;
     end if;
 
@@ -68,7 +68,7 @@ $$;
 revoke execute on function public.recompute_customer_product_loyalty(uuid, uuid)
   from public, anon, authenticated;
 
-create function public.void_sale(p_sale_id uuid, p_reason text default null)
+create or replace function public.void_sale(p_sale_id uuid, p_reason text default null)
 returns public.sales
 language plpgsql
 security definer
