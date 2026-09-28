@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 
 import { createServiceRoleClient } from "@/lib/supabase/service-role"
-import { syncMercadoPagoPayment, verifyMercadoPagoSignature } from "@/lib/mercadopago-qr"
+import { syncMercadoPagoPayment, verifyMercadoPagoSignature } from "@/lib/mercadopago-orders"
 
 // Mercado Pago "order" notifications. The body is only a hint: after checking
 // the signature, the order's status is always re-read from the API.

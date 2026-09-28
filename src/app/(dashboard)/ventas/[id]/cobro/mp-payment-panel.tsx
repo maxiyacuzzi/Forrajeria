@@ -5,35 +5,54 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
-import { PAYMENT_METHOD_LABEL } from "@/lib/validations/expense"
-import {
-  refreshQrPaymentStatus,
-  settleQrSaleOtherwise,
-  startQrPayment,
-} from "./actions"
+import { refreshMpPaymentStatus, settleMpSaleOtherwise, startMpPayment } from "./actions"
 
 const POLL_INTERVAL_MS = 3000
-const FALLBACK_METHODS = ["efectivo", "transferencia", "posnet_mp"] as const
 
-const STATUS_MESSAGE: Record<string, string> = {
-  created: "Esperando que el cliente escanee el QR y pague…",
-  at_terminal: "El cliente está pagando…",
-  action_required: "El pago necesita una acción del cliente en la app de Mercado Pago.",
-  expired: "El cobro venció sin pagarse.",
-  canceled: "El cobro se canceló.",
-  failed: "El pago fue rechazado.",
+type Kind = "qr" | "point"
+type FallbackMethod = "efectivo" | "transferencia" | "posnet_mp"
+
+const STATUS_MESSAGE: Record<Kind, Record<string, string>> = {
+  qr: {
+    created: "Esperando que el cliente escanee el QR y pague…",
+    at_terminal: "El cliente está pagando…",
+    action_required: "El pago necesita una acción del cliente en la app de Mercado Pago.",
+    expired: "El cobro venció sin pagarse.",
+    canceled: "El cobro se canceló.",
+    failed: "El pago fue rechazado.",
+  },
+  point: {
+    created: "Enviando el cobro al posnet…",
+    at_terminal: "El cobro está en el posnet: el cliente puede pasar la tarjeta.",
+    action_required:
+      "El posnet necesita confirmación. Revisá la pantalla del posnet: si el pago salió aprobado, tocá \"Lo cobré en el posnet\".",
+    expired: "El cobro venció en el posnet sin pagarse.",
+    canceled: "El cobro se canceló en el posnet.",
+    failed: "El pago fue rechazado en el posnet.",
+  },
+}
+
+const FALLBACK_LABEL: Record<Kind, Record<FallbackMethod, string>> = {
+  qr: { efectivo: "Efectivo", transferencia: "Transferencia", posnet_mp: "Posnet MP" },
+  point: {
+    efectivo: "Efectivo",
+    transferencia: "Transferencia",
+    posnet_mp: "Lo cobré en el posnet",
+  },
 }
 
 function isOpen(status: string | null) {
   return status === "created" || status === "at_terminal" || status === "action_required"
 }
 
-export function QrPaymentPanel({
+export function MpPaymentPanel({
   saleId,
+  kind,
   qrImageUrl,
   initialStatus,
 }: {
   saleId: string
+  kind: Kind
   qrImageUrl: string | null
   initialStatus: string | null
 }) {
@@ -50,7 +69,7 @@ export function QrPaymentPanel({
     if (!isOpen(status)) return
 
     const interval = setInterval(async () => {
-      const result = await refreshQrPaymentStatus(saleId)
+      const result = await refreshMpPaymentStatus(saleId)
       if (result.status) setStatus(result.status)
     }, POLL_INTERVAL_MS)
     return () => clearInterval(interval)
@@ -58,15 +77,15 @@ export function QrPaymentPanel({
 
   function retry() {
     startTransition(async () => {
-      const result = await startQrPayment(saleId)
+      const result = await startMpPayment(saleId)
       if (result.error) toast.error(result.error)
       else setStatus(result.status)
     })
   }
 
-  function settle(method: (typeof FALLBACK_METHODS)[number]) {
+  function settle(method: FallbackMethod) {
     startTransition(async () => {
-      const result = await settleQrSaleOtherwise(saleId, method)
+      const result = await settleMpSaleOtherwise(saleId, method)
       if (result?.status === "processed") setStatus("processed")
       else if (result?.error) toast.error(result.error)
     })
@@ -74,7 +93,7 @@ export function QrPaymentPanel({
 
   return (
     <div className="grid gap-4">
-      {qrImageUrl && isOpen(status) && (
+      {kind === "qr" && qrImageUrl && isOpen(status) && (
         // eslint-disable-next-line @next/next/no-img-element -- remote QR served by Mercado Pago
         <img
           src={qrImageUrl}
@@ -85,27 +104,28 @@ export function QrPaymentPanel({
 
       <p className="text-sm text-muted-foreground">
         {status
-          ? (STATUS_MESSAGE[status] ?? `Estado: ${status}`)
+          ? (STATUS_MESSAGE[kind][status] ?? `Estado: ${status}`)
           : "Todavía no se generó el cobro en Mercado Pago."}
       </p>
 
       {!isOpen(status) && (
         <Button size="lg" disabled={pending} onClick={retry}>
-          Generar el cobro de nuevo
+          {kind === "point" ? "Enviar el cobro al posnet de nuevo" : "Generar el cobro de nuevo"}
         </Button>
       )}
 
       <div className="grid gap-2">
-        <p className="text-sm font-medium">¿Paga de otra forma?</p>
+        <p className="text-sm font-medium">¿Se cobró de otra forma?</p>
         <div className="grid grid-cols-3 gap-2">
-          {FALLBACK_METHODS.map((method) => (
+          {(Object.keys(FALLBACK_LABEL[kind]) as FallbackMethod[]).map((method) => (
             <Button
               key={method}
               variant="outline"
               disabled={pending}
               onClick={() => settle(method)}
+              className="h-auto min-h-9 whitespace-normal"
             >
-              {PAYMENT_METHOD_LABEL[method]}
+              {FALLBACK_LABEL[kind][method]}
             </Button>
           ))}
         </div>

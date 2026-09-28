@@ -5,12 +5,34 @@ import { z } from "zod"
 
 import { createClient } from "@/lib/supabase/server"
 import { createServiceRoleClient } from "@/lib/supabase/service-role"
+import { geocodeAddress, reverseGeocode, type GeocodedAddress } from "@/lib/geocoding"
 import {
   createMercadoPagoStoreAndPos,
   getMercadoPagoConnection,
-} from "@/lib/mercadopago-qr"
+  listMercadoPagoTerminals,
+  setMercadoPagoTerminalMode,
+  type MercadoPagoTerminal,
+} from "@/lib/mercadopago-orders"
 
 export async function disconnectMercadoPago() {
+  // Once disconnected we lose the token, so hand a Point back for manual
+  // charging first. Best effort: the RPC below still enforces owner-only.
+  const orgId = await getOwnerOrgId()
+  if (orgId) {
+    try {
+      const connection = await getMercadoPagoConnection(orgId)
+      if (connection?.point_terminal_id) {
+        await setMercadoPagoTerminalMode(
+          connection.access_token,
+          connection.point_terminal_id,
+          "STANDALONE"
+        )
+      }
+    } catch (err) {
+      console.error("disconnectMercadoPago: could not reset the Point terminal", err)
+    }
+  }
+
   const supabase = await createClient()
   const { error } = await supabase.rpc("disconnect_mercadopago")
 
@@ -85,6 +107,129 @@ export async function setupMercadoPagoQr(
     console.error("setupMercadoPagoQr", err)
     return { error: "Mercado Pago no pudo crear la sucursal. Revisá los datos y probá de nuevo." }
   }
+
+  revalidatePath("/configuracion/mercadopago")
+  return { error: null }
+}
+
+export type GeocodeResult = { address: GeocodedAddress | null; error: string | null }
+
+export async function lookupAddressFromCoordinates(
+  latitude: number,
+  longitude: number
+): Promise<GeocodeResult> {
+  try {
+    const address = await reverseGeocode(latitude, longitude)
+    return address
+      ? { address, error: null }
+      : { address: null, error: "No se encontró una dirección para tu ubicación." }
+  } catch (err) {
+    console.error("lookupAddressFromCoordinates", err)
+    return { address: null, error: "No se pudo consultar la dirección. Probá de nuevo." }
+  }
+}
+
+export async function lookupCoordinatesFromAddress(query: string): Promise<GeocodeResult> {
+  if (!query.trim()) return { address: null, error: "Completá la dirección primero." }
+  try {
+    const address = await geocodeAddress(query)
+    return address
+      ? { address, error: null }
+      : { address: null, error: "No se encontró esa dirección. Revisá calle, altura y ciudad." }
+  } catch (err) {
+    console.error("lookupCoordinatesFromAddress", err)
+    return { address: null, error: "No se pudo buscar la dirección. Probá de nuevo." }
+  }
+}
+
+/** The owner's org id, or null when the current user isn't an owner. */
+async function getOwnerOrgId() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, org_id")
+    .eq("id", user.id)
+    .single()
+
+  return profile?.role === "owner" ? profile.org_id : null
+}
+
+export type TerminalsResult = { terminals: MercadoPagoTerminal[]; error: string | null }
+
+export async function listPointTerminals(): Promise<TerminalsResult> {
+  const orgId = await getOwnerOrgId()
+  if (!orgId) return { terminals: [], error: "Solo el dueño puede configurar el posnet." }
+
+  try {
+    const connection = await getMercadoPagoConnection(orgId)
+    if (!connection) return { terminals: [], error: "Primero conectá la cuenta de Mercado Pago." }
+    return { terminals: await listMercadoPagoTerminals(connection.access_token), error: null }
+  } catch (err) {
+    console.error("listPointTerminals", err)
+    return { terminals: [], error: "No se pudieron consultar los posnets en Mercado Pago." }
+  }
+}
+
+export async function selectPointTerminal(terminalId: string): Promise<{ error: string | null }> {
+  const orgId = await getOwnerOrgId()
+  if (!orgId) return { error: "Solo el dueño puede configurar el posnet." }
+
+  try {
+    const connection = await getMercadoPagoConnection(orgId)
+    if (!connection) return { error: "Primero conectá la cuenta de Mercado Pago." }
+
+    // Only a terminal linked to this account can be picked.
+    const terminals = await listMercadoPagoTerminals(connection.access_token)
+    const terminal = terminals.find((t) => t.id === terminalId)
+    if (!terminal) return { error: "Ese posnet no está vinculado a la cuenta." }
+
+    if (terminal.operating_mode !== "PDV") {
+      await setMercadoPagoTerminalMode(connection.access_token, terminalId, "PDV")
+    }
+
+    const { error } = await createServiceRoleClient()
+      .from("mercadopago_connections")
+      .update({ point_terminal_id: terminalId })
+      .eq("org_id", orgId)
+    if (error) throw error
+  } catch (err) {
+    console.error("selectPointTerminal", err)
+    return { error: "No se pudo configurar el posnet en modo integrado." }
+  }
+
+  revalidatePath("/configuracion/mercadopago")
+  return { error: null }
+}
+
+export async function removePointTerminal(): Promise<{ error: string | null }> {
+  const orgId = await getOwnerOrgId()
+  if (!orgId) return { error: "Solo el dueño puede configurar el posnet." }
+
+  // Hand the device back for manual charging before forgetting it.
+  try {
+    const connection = await getMercadoPagoConnection(orgId)
+    if (connection?.point_terminal_id) {
+      await setMercadoPagoTerminalMode(
+        connection.access_token,
+        connection.point_terminal_id,
+        "STANDALONE"
+      )
+    }
+  } catch (err) {
+    console.error("removePointTerminal", err)
+    return { error: "No se pudo volver el posnet a modo manual. Probá de nuevo." }
+  }
+
+  const { error } = await createServiceRoleClient()
+    .from("mercadopago_connections")
+    .update({ point_terminal_id: null })
+    .eq("org_id", orgId)
+  if (error) return { error: "No se pudo quitar el posnet." }
 
   revalidatePath("/configuracion/mercadopago")
   return { error: null }

@@ -4,8 +4,9 @@ import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
 
 import { createClient } from "@/lib/supabase/server"
+import { createServiceRoleClient } from "@/lib/supabase/service-role"
 import { saleSchema, type SaleFormValues } from "@/lib/validations/sale"
-import { startQrPayment } from "./[id]/cobro-qr/actions"
+import { startMpPayment } from "./[id]/cobro/actions"
 
 export type SaleActionState = { error: string | null }
 
@@ -16,13 +17,17 @@ export async function createSale(values: SaleFormValues): Promise<SaleActionStat
   }
 
   const supabase = await createClient()
-  const isQr = parsed.data.payment_method === "qr_mp"
+  const method = parsed.data.payment_method
+  // QR always goes through Mercado Pago; "posnet_mp" only once a Point is set
+  // up — until then it stays a manual method, as before.
+  let chargeThroughMp = false
 
-  if (isQr) {
+  if (method === "qr_mp" || method === "posnet_mp") {
     const { data: status } = await supabase.rpc("mercadopago_connection_status").single()
-    if (!status?.qr_ready) {
+    if (method === "qr_mp" && !status?.qr_ready) {
       return { error: "El cobro con QR no está configurado (Configuración > Mercado Pago)" }
     }
+    chargeThroughMp = method === "qr_mp" || Boolean(status?.point_terminal_id)
   }
 
   const { data: sale, error } = await supabase.rpc("create_sale", {
@@ -40,10 +45,17 @@ export async function createSale(values: SaleFormValues): Promise<SaleActionStat
   revalidatePath("/stock")
   revalidatePath("/clientes")
 
-  if (isQr) {
+  if (chargeThroughMp) {
+    const { error: flagError } = await createServiceRoleClient()
+      .from("sales")
+      .update({ awaiting_mp_payment: true })
+      .eq("id", sale.id)
+    if (flagError) {
+      return { error: "La venta se registró pero no se pudo iniciar el cobro con Mercado Pago." }
+    }
     // The payment screen shows any error and lets the cashier retry.
-    await startQrPayment(sale.id)
-    redirect(`/ventas/${sale.id}/cobro-qr`)
+    await startMpPayment(sale.id)
+    redirect(`/ventas/${sale.id}/cobro`)
   }
   redirect(`/ventas/${sale.id}`)
 }

@@ -1,5 +1,6 @@
-// In-person QR payments on the organization's linked Mercado Pago account,
-// through the Orders API: https://www.mercadopago.com.ar/developers/es/docs/qr-code
+// In-person payments on the organization's linked Mercado Pago account through
+// the Orders API: the store's QR (https://www.mercadopago.com.ar/developers/es/docs/qr-code)
+// and integrated Point terminals (https://www.mercadopago.com.ar/developers/es/docs/mp-point).
 // Server-only — reads the seller's OAuth tokens with the service-role client.
 
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto"
@@ -21,6 +22,15 @@ export type MercadoPagoStoreLocation = {
   reference?: string
 }
 
+export type MercadoPagoPaymentKind = "qr" | "point"
+
+export type MercadoPagoTerminal = {
+  id: string
+  operating_mode: string
+  store_id: string | null
+  pos_id: number | null
+}
+
 export type MercadoPagoOrder = {
   id: string
   status: string
@@ -31,7 +41,11 @@ export type MercadoPagoOrder = {
 async function mpRequest<T>(
   path: string,
   accessToken: string,
-  { method = "GET", body }: { method?: "GET" | "POST"; body?: unknown } = {}
+  {
+    method = "GET",
+    body,
+    headers,
+  }: { method?: "GET" | "POST" | "PATCH"; body?: unknown; headers?: Record<string, string> } = {}
 ): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     method,
@@ -39,6 +53,7 @@ async function mpRequest<T>(
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
       ...(method === "POST" ? { "X-Idempotency-Key": randomUUID() } : {}),
+      ...headers,
     },
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: "no-store",
@@ -147,6 +162,52 @@ export function createMercadoPagoQrOrder(
   })
 }
 
+export async function listMercadoPagoTerminals(accessToken: string) {
+  const res = await mpRequest<{ data?: { terminals?: MercadoPagoTerminal[] } }>(
+    "/terminals/v1/list?limit=50",
+    accessToken
+  )
+  return res.data?.terminals ?? []
+}
+
+/**
+ * PDV: the terminal takes its charges from our orders instead of manual entry.
+ * STANDALONE: back to manual charging on the device.
+ */
+export function setMercadoPagoTerminalMode(
+  accessToken: string,
+  terminalId: string,
+  mode: "PDV" | "STANDALONE"
+) {
+  return mpRequest<unknown>("/terminals/v1/setup", accessToken, {
+    method: "PATCH",
+    body: { terminals: [{ id: terminalId, operating_mode: mode }] },
+  })
+}
+
+/** Sends an amount to a Point terminal; the customer pays on the device. */
+export function createMercadoPagoPointOrder(
+  accessToken: string,
+  {
+    terminalId,
+    amount,
+    externalReference,
+    description,
+  }: { terminalId: string; amount: number; externalReference: string; description: string }
+) {
+  return mpRequest<MercadoPagoOrder>("/v1/orders", accessToken, {
+    method: "POST",
+    body: {
+      type: "point",
+      description,
+      external_reference: externalReference,
+      expiration_time: "PT10M",
+      transactions: { payments: [{ amount: amount.toFixed(2) }] },
+      config: { point: { terminal_id: terminalId, print_on_terminal: "no_ticket" } },
+    },
+  })
+}
+
 export function getMercadoPagoOrder(accessToken: string, orderId: string) {
   return mpRequest<MercadoPagoOrder>(`/v1/orders/${orderId}`, accessToken)
 }
@@ -154,7 +215,61 @@ export function getMercadoPagoOrder(accessToken: string, orderId: string) {
 export function cancelMercadoPagoOrder(accessToken: string, orderId: string) {
   return mpRequest<MercadoPagoOrder>(`/v1/orders/${orderId}/cancel`, accessToken, {
     method: "POST",
+    // Without it, an order a Point terminal already picked up can't be canceled.
+    headers: { "x-allow-cancelable-status": "at_terminal" },
   })
+}
+
+export type MercadoPagoReceivedPayment = {
+  id: number
+  date_created: string
+  date_approved: string | null
+  money_release_date: string | null
+  status: string
+  status_detail: string | null
+  payment_type_id: string
+  payment_method_id: string
+  description: string | null
+  external_reference: string | null
+  transaction_amount: number
+  transaction_amount_refunded: number
+  fee_details: { type: string; amount: number }[]
+  transaction_details: { net_received_amount: number } | null
+}
+
+// Payments search pages; more than this in one range is summarized as partial.
+const PAYMENTS_PAGE_SIZE = 100
+const PAYMENTS_MAX_PAGES = 5
+
+/** Payments received by the account between two instants, newest first. */
+export async function searchMercadoPagoPayments(
+  accessToken: string,
+  { beginDate, endDate }: { beginDate: string; endDate: string }
+) {
+  const payments: MercadoPagoReceivedPayment[] = []
+  let total = 0
+
+  for (let page = 0; page < PAYMENTS_MAX_PAGES; page++) {
+    const params = new URLSearchParams({
+      sort: "date_created",
+      criteria: "desc",
+      range: "date_created",
+      begin_date: beginDate,
+      end_date: endDate,
+      limit: String(PAYMENTS_PAGE_SIZE),
+      offset: String(page * PAYMENTS_PAGE_SIZE),
+    })
+    const res = await mpRequest<{
+      results: MercadoPagoReceivedPayment[]
+      paging: { total: number }
+    }>(`/v1/payments/search?${params}`, accessToken)
+
+    payments.push(...res.results)
+    total = res.paging.total
+    if (payments.length >= total || res.results.length < PAYMENTS_PAGE_SIZE) break
+  }
+
+  return { payments, total, partial: payments.length < total }
 }
 
 /** Syncs a stored payment row with the order's current status in Mercado Pago. */
@@ -164,7 +279,7 @@ export async function syncMercadoPagoPayment(orgId: string, mpOrderId: string) {
 
   const order = await getMercadoPagoOrder(connection.access_token, mpOrderId)
   const service = createServiceRoleClient()
-  const { error } = await service
+  const { data: payment, error } = await service
     .from("mercadopago_payments")
     .update({
       status: order.status,
@@ -172,8 +287,19 @@ export async function syncMercadoPagoPayment(orgId: string, mpOrderId: string) {
       updated_at: new Date().toISOString(),
     })
     .eq("mp_order_id", mpOrderId)
+    .select("sale_id")
+    .single()
 
   if (error) throw error
+
+  if (order.status === "processed") {
+    const { error: saleError } = await service
+      .from("sales")
+      .update({ awaiting_mp_payment: false })
+      .eq("id", payment.sale_id)
+    if (saleError) throw saleError
+  }
+
   return order
 }
 

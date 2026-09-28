@@ -28,6 +28,7 @@ const NAV_ITEMS: { href: string; label: string; roles: Role[] }[] = [
     label: "Movimientos",
     roles: ["owner", "vendedor", "deposito"],
   },
+  { href: "/cobros-mp", label: "Cobros MP", roles: ["owner"] },
   { href: "/configuracion/mercadopago", label: "Mercado Pago", roles: ["owner"] },
 ]
 

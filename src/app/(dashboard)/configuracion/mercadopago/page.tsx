@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { disconnectMercadoPago } from "./actions"
+import { PointSetup } from "./point-setup"
 import { QrSetupForm } from "./qr-setup-form"
 
 const ERROR_MESSAGE: Record<string, string> = {
@@ -126,6 +127,22 @@ export default async function MercadoPagoSettingsPage({
             ) : (
               <QrSetupForm />
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {status?.connected && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Posnet Point integrado</CardTitle>
+            <CardDescription>
+              {status.point_terminal_id
+                ? "Al cobrar con \"Posnet Mercado Pago\", el total se envía solo al posnet y la venta se confirma cuando el cliente paga."
+                : "Con un Point Smart o Point Pro vinculado a esta cuenta, el total de cada venta se envía solo al posnet. Mientras no elijas uno, \"Posnet Mercado Pago\" sigue siendo manual."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PointSetup terminalId={status.point_terminal_id} />
           </CardContent>
         </Card>
       )}
