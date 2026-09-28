@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
-import { refreshMpPaymentStatus, settleMpSaleOtherwise, startMpPayment } from "./actions"
+import {
+  cancelMpPayment,
+  refreshMpPaymentStatus,
+  settleMpSaleOtherwise,
+  startMpPayment,
+} from "./actions"
 
 const POLL_INTERVAL_MS = 3000
 
@@ -18,7 +23,7 @@ const STATUS_MESSAGE: Record<Kind, Record<string, string>> = {
     at_terminal: "El cliente está pagando…",
     action_required: "El pago necesita una acción del cliente en la app de Mercado Pago.",
     expired: "El cobro venció sin pagarse.",
-    canceled: "El cobro se canceló.",
+    canceled: "El cobro se canceló. La venta sigue pendiente de pago.",
     failed: "El pago fue rechazado.",
   },
   point: {
@@ -27,7 +32,7 @@ const STATUS_MESSAGE: Record<Kind, Record<string, string>> = {
     action_required:
       "El posnet necesita confirmación. Revisá la pantalla del posnet: si el pago salió aprobado, tocá \"Lo cobré en el posnet\".",
     expired: "El cobro venció en el posnet sin pagarse.",
-    canceled: "El cobro se canceló en el posnet.",
+    canceled: "El cobro se canceló. La venta sigue pendiente de pago.",
     failed: "El pago fue rechazado en el posnet.",
   },
 }
@@ -91,6 +96,14 @@ export function MpPaymentPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only on mount
   }, [])
 
+  function cancel() {
+    startTransition(async () => {
+      const result = await cancelMpPayment(saleId)
+      setError(result.error)
+      if (result.status) setStatus(result.status)
+    })
+  }
+
   function settle(method: FallbackMethod) {
     startTransition(async () => {
       const result = await settleMpSaleOtherwise(saleId, method)
@@ -117,6 +130,12 @@ export function MpPaymentPanel({
       </p>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
+
+      {isOpen(status) && (
+        <Button variant="outline" disabled={pending} onClick={cancel}>
+          Cancelar cobro
+        </Button>
+      )}
 
       {!isOpen(status) && (
         <Button size="lg" disabled={pending} onClick={retry}>
