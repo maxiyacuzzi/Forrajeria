@@ -5,6 +5,7 @@ import { z } from "zod"
 
 import { createClient } from "@/lib/supabase/server"
 import { createServiceRoleClient } from "@/lib/supabase/service-role"
+import { geocodeAddress, reverseGeocode, type GeocodedAddress } from "@/lib/geocoding"
 import {
   createMercadoPagoStoreAndPos,
   getMercadoPagoConnection,
@@ -88,4 +89,34 @@ export async function setupMercadoPagoQr(
 
   revalidatePath("/configuracion/mercadopago")
   return { error: null }
+}
+
+export type GeocodeResult = { address: GeocodedAddress | null; error: string | null }
+
+export async function lookupAddressFromCoordinates(
+  latitude: number,
+  longitude: number
+): Promise<GeocodeResult> {
+  try {
+    const address = await reverseGeocode(latitude, longitude)
+    return address
+      ? { address, error: null }
+      : { address: null, error: "No se encontró una dirección para tu ubicación." }
+  } catch (err) {
+    console.error("lookupAddressFromCoordinates", err)
+    return { address: null, error: "No se pudo consultar la dirección. Probá de nuevo." }
+  }
+}
+
+export async function lookupCoordinatesFromAddress(query: string): Promise<GeocodeResult> {
+  if (!query.trim()) return { address: null, error: "Completá la dirección primero." }
+  try {
+    const address = await geocodeAddress(query)
+    return address
+      ? { address, error: null }
+      : { address: null, error: "No se encontró esa dirección. Revisá calle, altura y ciudad." }
+  } catch (err) {
+    console.error("lookupCoordinatesFromAddress", err)
+    return { address: null, error: "No se pudo buscar la dirección. Probá de nuevo." }
+  }
 }
