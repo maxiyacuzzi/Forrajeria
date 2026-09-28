@@ -191,6 +191,10 @@ export function createMercadoPagoQrOrder(
       expiration_time: "PT10M",
       config: { qr: { external_pos_id: externalPosId, mode: "static" } },
       transactions: { payments: [{ amount: total }] },
+      // QR orders require items (integer quantities). Loose-kg sales don't fit
+      // that, so the whole sale goes as one line that always adds up to the
+      // total, discounts and surcharges included.
+      items: [{ title: description, unit_price: total, quantity: 1, unit_measure: "unit" }],
     },
   })
 }
