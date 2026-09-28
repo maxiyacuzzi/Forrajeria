@@ -7,7 +7,9 @@ import { createClient } from "@/lib/supabase/server"
 import { createServiceRoleClient } from "@/lib/supabase/service-role"
 import { geocodeAddress, reverseGeocode, type GeocodedAddress } from "@/lib/geocoding"
 import {
-  createMercadoPagoStoreAndPos,
+  createMercadoPagoPos,
+  createMercadoPagoStore,
+  MercadoPagoApiError,
   getMercadoPagoConnection,
   listMercadoPagoTerminals,
   setMercadoPagoTerminalMode,
@@ -81,31 +83,48 @@ export async function setupMercadoPagoQr(
     return { error: "Solo el dueño puede configurar el cobro con QR." }
   }
 
+  const service = createServiceRoleClient()
+  let step: "store" | "pos" = "store"
   try {
     const connection = await getMercadoPagoConnection(profile.org_id)
     if (!connection) return { error: "Primero conectá la cuenta de Mercado Pago." }
 
-    const { store_name, reference, ...location } = parsed.data
-    const pos = await createMercadoPagoStoreAndPos(
-      connection.access_token,
-      connection.mp_user_id,
-      { name: store_name, location: { ...location, reference: reference || undefined } }
-    )
+    // A store left from a previous attempt whose POS failed is reused, so a
+    // retry doesn't create a duplicate store in the seller's account.
+    let storeId = connection.store_id
+    if (!storeId) {
+      const { store_name, reference, ...location } = parsed.data
+      storeId = await createMercadoPagoStore(connection.access_token, connection.mp_user_id, {
+        name: store_name,
+        location: { ...location, reference: reference || undefined },
+      })
+      const { error } = await service
+        .from("mercadopago_connections")
+        .update({ store_id: storeId })
+        .eq("org_id", profile.org_id)
+      if (error) throw error
+    }
 
-    const { error } = await createServiceRoleClient()
+    step = "pos"
+    const pos = await createMercadoPagoPos(connection.access_token, storeId)
+    const { error } = await service
       .from("mercadopago_connections")
       .update({
-        store_id: pos.storeId,
         external_pos_id: pos.externalPosId,
         qr_image_url: pos.qrImageUrl,
         qr_template_url: pos.qrTemplateUrl,
       })
       .eq("org_id", profile.org_id)
-
     if (error) throw error
   } catch (err) {
-    console.error("setupMercadoPagoQr", err)
-    return { error: "Mercado Pago no pudo crear la sucursal. Revisá los datos y probá de nuevo." }
+    console.error("setupMercadoPagoQr", step, err)
+    const what = step === "store" ? "la sucursal" : "la caja"
+    return {
+      error:
+        err instanceof MercadoPagoApiError
+          ? `Mercado Pago no pudo crear ${what}: ${err.reason}`
+          : `No se pudo crear ${what}. Probá de nuevo.`,
+    }
   }
 
   revalidatePath("/configuracion/mercadopago")

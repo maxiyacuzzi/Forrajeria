@@ -38,6 +38,34 @@ export type MercadoPagoOrder = {
   external_reference: string
 }
 
+/** A non-2xx answer from Mercado Pago, with the reason it gave (safe to show). */
+export class MercadoPagoApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly path: string,
+    readonly reason: string
+  ) {
+    super(`Mercado Pago respondió ${status} en ${path}: ${reason}`)
+  }
+}
+
+function errorReason(body: string) {
+  try {
+    const data = JSON.parse(body) as {
+      message?: string
+      error?: string
+      cause?: { description?: string; message?: string }[]
+      errors?: { message?: string; details?: string[] }[]
+    }
+    const detail =
+      data.cause?.map((c) => c.description ?? c.message).filter(Boolean).join("; ") ||
+      data.errors?.map((e) => [e.message, ...(e.details ?? [])].join(": ")).join("; ")
+    return [data.message ?? data.error, detail].filter(Boolean).join(" — ") || body.slice(0, 300)
+  } catch {
+    return body.slice(0, 300)
+  }
+}
+
 async function mpRequest<T>(
   path: string,
   accessToken: string,
@@ -60,8 +88,8 @@ async function mpRequest<T>(
   })
 
   if (!res.ok) {
-    const detail = await res.text().catch(() => "")
-    throw new Error(`Mercado Pago respondió ${res.status} en ${path}: ${detail.slice(0, 300)}`)
+    const body = await res.text().catch(() => "")
+    throw new MercadoPagoApiError(res.status, path.split("?")[0], errorReason(body))
   }
 
   return res.json() as Promise<T>
@@ -100,37 +128,40 @@ export async function getMercadoPagoConnection(orgId: string) {
   return refreshed
 }
 
-/** Creates the store and its attended ("pdv") POS, returning the POS's static QR. */
-export async function createMercadoPagoStoreAndPos(
+// Alphanumeric and unique per setup, so reconnecting never collides with a
+// store/POS left behind in the seller's account by an earlier connection.
+function externalId(prefix: string) {
+  return `${prefix}${Date.now().toString(36).toUpperCase()}`
+}
+
+export async function createMercadoPagoStore(
   accessToken: string,
   mpUserId: number,
   { name, location }: { name: string; location: MercadoPagoStoreLocation }
 ) {
-  // Alphanumeric and unique per setup, so reconnecting never collides with a
-  // store/POS left behind in the seller's account by an earlier connection.
-  const suffix = Date.now().toString(36).toUpperCase()
-  const externalStoreId = `FORRAJERIA${suffix}`
-  const externalPosId = `${externalStoreId}POS1`
-
   const store = await mpRequest<{ id: number }>(`/users/${mpUserId}/stores`, accessToken, {
     method: "POST",
-    body: { name, external_id: externalStoreId, location },
+    body: { name, external_id: externalId("FORRAJERIA"), location },
   })
+  return String(store.id)
+}
 
+/** Creates an attended ("pdv") POS in the store, returning its static QR. */
+export async function createMercadoPagoPos(accessToken: string, storeId: string) {
+  const externalPosId = externalId("FORRAJERIAPOS")
   const pos = await mpRequest<{
     qr_response?: { image?: string; template_document?: string }
   }>("/v2/pos", accessToken, {
     method: "POST",
     body: {
       name: "Caja 1",
-      store_id: String(store.id),
+      store_id: storeId,
       external_id: externalPosId,
       config: { qr: { operating_mode: "pdv" } },
     },
   })
 
   return {
-    storeId: String(store.id),
     externalPosId,
     qrImageUrl: pos.qr_response?.image ?? null,
     qrTemplateUrl: pos.qr_response?.template_document ?? null,
