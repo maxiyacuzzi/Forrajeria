@@ -16,6 +16,8 @@ const ERROR_MESSAGE: Record<string, string> = {
   forbidden: "Solo el dueño de la cuenta puede conectar Mercado Pago.",
   invalid_state: "La conexión expiró o no es válida. Probá de nuevo.",
   exchange_failed: "Mercado Pago rechazó la conexión. Probá de nuevo.",
+  not_configured:
+    "Falta configurar las credenciales de Mercado Pago en el servidor (variables de entorno).",
 }
 
 export default async function MercadoPagoSettingsPage({
