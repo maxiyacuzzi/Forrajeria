@@ -170,11 +170,18 @@ export async function listMercadoPagoTerminals(accessToken: string) {
   return res.data?.terminals ?? []
 }
 
-/** PDV mode: the terminal takes its charges from our orders instead of manual entry. */
-export function setMercadoPagoTerminalPdvMode(accessToken: string, terminalId: string) {
+/**
+ * PDV: the terminal takes its charges from our orders instead of manual entry.
+ * STANDALONE: back to manual charging on the device.
+ */
+export function setMercadoPagoTerminalMode(
+  accessToken: string,
+  terminalId: string,
+  mode: "PDV" | "STANDALONE"
+) {
   return mpRequest<unknown>("/terminals/v1/setup", accessToken, {
     method: "PATCH",
-    body: { terminals: [{ id: terminalId, operating_mode: "PDV" }] },
+    body: { terminals: [{ id: terminalId, operating_mode: mode }] },
   })
 }
 

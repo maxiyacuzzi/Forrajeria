@@ -10,11 +10,29 @@ import {
   createMercadoPagoStoreAndPos,
   getMercadoPagoConnection,
   listMercadoPagoTerminals,
-  setMercadoPagoTerminalPdvMode,
+  setMercadoPagoTerminalMode,
   type MercadoPagoTerminal,
 } from "@/lib/mercadopago-orders"
 
 export async function disconnectMercadoPago() {
+  // Once disconnected we lose the token, so hand a Point back for manual
+  // charging first. Best effort: the RPC below still enforces owner-only.
+  const orgId = await getOwnerOrgId()
+  if (orgId) {
+    try {
+      const connection = await getMercadoPagoConnection(orgId)
+      if (connection?.point_terminal_id) {
+        await setMercadoPagoTerminalMode(
+          connection.access_token,
+          connection.point_terminal_id,
+          "STANDALONE"
+        )
+      }
+    } catch (err) {
+      console.error("disconnectMercadoPago: could not reset the Point terminal", err)
+    }
+  }
+
   const supabase = await createClient()
   const { error } = await supabase.rpc("disconnect_mercadopago")
 
@@ -171,7 +189,7 @@ export async function selectPointTerminal(terminalId: string): Promise<{ error: 
     if (!terminal) return { error: "Ese posnet no está vinculado a la cuenta." }
 
     if (terminal.operating_mode !== "PDV") {
-      await setMercadoPagoTerminalPdvMode(connection.access_token, terminalId)
+      await setMercadoPagoTerminalMode(connection.access_token, terminalId, "PDV")
     }
 
     const { error } = await createServiceRoleClient()
@@ -191,6 +209,21 @@ export async function selectPointTerminal(terminalId: string): Promise<{ error: 
 export async function removePointTerminal(): Promise<{ error: string | null }> {
   const orgId = await getOwnerOrgId()
   if (!orgId) return { error: "Solo el dueño puede configurar el posnet." }
+
+  // Hand the device back for manual charging before forgetting it.
+  try {
+    const connection = await getMercadoPagoConnection(orgId)
+    if (connection?.point_terminal_id) {
+      await setMercadoPagoTerminalMode(
+        connection.access_token,
+        connection.point_terminal_id,
+        "STANDALONE"
+      )
+    }
+  } catch (err) {
+    console.error("removePointTerminal", err)
+    return { error: "No se pudo volver el posnet a modo manual. Probá de nuevo." }
+  }
 
   const { error } = await createServiceRoleClient()
     .from("mercadopago_connections")

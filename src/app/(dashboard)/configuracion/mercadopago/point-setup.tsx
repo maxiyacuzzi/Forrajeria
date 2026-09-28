@@ -35,6 +35,7 @@ export function PointSetup({ terminalId }: { terminalId: string | null }) {
     startTransition(async () => {
       const result = await removePointTerminal()
       if (result.error) toast.error(result.error)
+      else toast.success("El posnet volvió a modo manual.")
     })
   }
 
@@ -45,7 +46,7 @@ export function PointSetup({ terminalId }: { terminalId: string | null }) {
           Posnet integrado: <span className="font-mono">{terminalId}</span>
         </p>
         <Button variant="outline" size="sm" disabled={pending} onClick={remove}>
-          Dejar de usarlo
+          Dejar de usarlo (volver a modo manual)
         </Button>
       </div>
     )
