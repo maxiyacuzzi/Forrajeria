@@ -1,5 +1,6 @@
-// In-person QR payments on the organization's linked Mercado Pago account,
-// through the Orders API: https://www.mercadopago.com.ar/developers/es/docs/qr-code
+// In-person payments on the organization's linked Mercado Pago account through
+// the Orders API: the store's QR (https://www.mercadopago.com.ar/developers/es/docs/qr-code)
+// and integrated Point terminals (https://www.mercadopago.com.ar/developers/es/docs/mp-point).
 // Server-only — reads the seller's OAuth tokens with the service-role client.
 
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto"
@@ -21,6 +22,15 @@ export type MercadoPagoStoreLocation = {
   reference?: string
 }
 
+export type MercadoPagoPaymentKind = "qr" | "point"
+
+export type MercadoPagoTerminal = {
+  id: string
+  operating_mode: string
+  store_id: string | null
+  pos_id: number | null
+}
+
 export type MercadoPagoOrder = {
   id: string
   status: string
@@ -31,7 +41,11 @@ export type MercadoPagoOrder = {
 async function mpRequest<T>(
   path: string,
   accessToken: string,
-  { method = "GET", body }: { method?: "GET" | "POST"; body?: unknown } = {}
+  {
+    method = "GET",
+    body,
+    headers,
+  }: { method?: "GET" | "POST" | "PATCH"; body?: unknown; headers?: Record<string, string> } = {}
 ): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     method,
@@ -39,6 +53,7 @@ async function mpRequest<T>(
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
       ...(method === "POST" ? { "X-Idempotency-Key": randomUUID() } : {}),
+      ...headers,
     },
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: "no-store",
@@ -147,6 +162,45 @@ export function createMercadoPagoQrOrder(
   })
 }
 
+export async function listMercadoPagoTerminals(accessToken: string) {
+  const res = await mpRequest<{ data?: { terminals?: MercadoPagoTerminal[] } }>(
+    "/terminals/v1/list?limit=50",
+    accessToken
+  )
+  return res.data?.terminals ?? []
+}
+
+/** PDV mode: the terminal takes its charges from our orders instead of manual entry. */
+export function setMercadoPagoTerminalPdvMode(accessToken: string, terminalId: string) {
+  return mpRequest<unknown>("/terminals/v1/setup", accessToken, {
+    method: "PATCH",
+    body: { terminals: [{ id: terminalId, operating_mode: "PDV" }] },
+  })
+}
+
+/** Sends an amount to a Point terminal; the customer pays on the device. */
+export function createMercadoPagoPointOrder(
+  accessToken: string,
+  {
+    terminalId,
+    amount,
+    externalReference,
+    description,
+  }: { terminalId: string; amount: number; externalReference: string; description: string }
+) {
+  return mpRequest<MercadoPagoOrder>("/v1/orders", accessToken, {
+    method: "POST",
+    body: {
+      type: "point",
+      description,
+      external_reference: externalReference,
+      expiration_time: "PT10M",
+      transactions: { payments: [{ amount: amount.toFixed(2) }] },
+      config: { point: { terminal_id: terminalId, print_on_terminal: "no_ticket" } },
+    },
+  })
+}
+
 export function getMercadoPagoOrder(accessToken: string, orderId: string) {
   return mpRequest<MercadoPagoOrder>(`/v1/orders/${orderId}`, accessToken)
 }
@@ -154,6 +208,8 @@ export function getMercadoPagoOrder(accessToken: string, orderId: string) {
 export function cancelMercadoPagoOrder(accessToken: string, orderId: string) {
   return mpRequest<MercadoPagoOrder>(`/v1/orders/${orderId}/cancel`, accessToken, {
     method: "POST",
+    // Without it, an order a Point terminal already picked up can't be canceled.
+    headers: { "x-allow-cancelable-status": "at_terminal" },
   })
 }
 
@@ -164,7 +220,7 @@ export async function syncMercadoPagoPayment(orgId: string, mpOrderId: string) {
 
   const order = await getMercadoPagoOrder(connection.access_token, mpOrderId)
   const service = createServiceRoleClient()
-  const { error } = await service
+  const { data: payment, error } = await service
     .from("mercadopago_payments")
     .update({
       status: order.status,
@@ -172,8 +228,19 @@ export async function syncMercadoPagoPayment(orgId: string, mpOrderId: string) {
       updated_at: new Date().toISOString(),
     })
     .eq("mp_order_id", mpOrderId)
+    .select("sale_id")
+    .single()
 
   if (error) throw error
+
+  if (order.status === "processed") {
+    const { error: saleError } = await service
+      .from("sales")
+      .update({ awaiting_mp_payment: false })
+      .eq("id", payment.sale_id)
+    if (saleError) throw saleError
+  }
+
   return order
 }
 

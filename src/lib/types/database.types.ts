@@ -350,6 +350,7 @@ export type Database = {
           mp_user_id: number
           nickname: string | null
           org_id: string
+          point_terminal_id: string | null
           public_key: string | null
           qr_image_url: string | null
           qr_template_url: string | null
@@ -368,6 +369,7 @@ export type Database = {
           mp_user_id: number
           nickname?: string | null
           org_id: string
+          point_terminal_id?: string | null
           public_key?: string | null
           qr_image_url?: string | null
           qr_template_url?: string | null
@@ -386,6 +388,7 @@ export type Database = {
           mp_user_id?: number
           nickname?: string | null
           org_id?: string
+          point_terminal_id?: string | null
           public_key?: string | null
           qr_image_url?: string | null
           qr_template_url?: string | null
@@ -415,6 +418,7 @@ export type Database = {
           amount: number
           created_at: string
           id: string
+          kind: string
           mp_order_id: string
           org_id: string
           sale_id: string
@@ -426,6 +430,7 @@ export type Database = {
           amount: number
           created_at?: string
           id?: string
+          kind?: string
           mp_order_id: string
           org_id: string
           sale_id: string
@@ -437,6 +442,7 @@ export type Database = {
           amount?: number
           created_at?: string
           id?: string
+          kind?: string
           mp_order_id?: string
           org_id?: string
           sale_id?: string
@@ -739,6 +745,7 @@ export type Database = {
       }
       sales: {
         Row: {
+          awaiting_mp_payment: boolean
           cash_register_id: string | null
           created_at: string
           created_by: string | null
@@ -754,6 +761,7 @@ export type Database = {
           total_amount: number
         }
         Insert: {
+          awaiting_mp_payment?: boolean
           cash_register_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -769,6 +777,7 @@ export type Database = {
           total_amount?: number
         }
         Update: {
+          awaiting_mp_payment?: boolean
           cash_register_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -1037,14 +1046,14 @@ export type Database = {
               isSetofReturn: false
             }
           }
-      change_qr_sale_payment_method: {
+      disconnect_mercadopago: { Args: never; Returns: undefined }
+      settle_mp_sale_otherwise: {
         Args: {
           p_payment_method: Database["public"]["Enums"]["payment_method"]
           p_sale_id: string
         }
         Returns: undefined
       }
-      disconnect_mercadopago: { Args: never; Returns: undefined }
       mercadopago_connection_status: {
         Args: never
         Returns: {
@@ -1052,6 +1061,7 @@ export type Database = {
           connected_at: string
           live_mode: boolean
           nickname: string
+          point_terminal_id: string
           qr_image_url: string
           qr_ready: boolean
           qr_template_url: string
